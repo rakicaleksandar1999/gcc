@@ -1164,7 +1164,20 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (8),            /* int_div_di */
 		    2,            /* branch_cost */
 		    4             /* memory_latency */
-  }
+  },
+  { /* M6200 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (34),           /* int_div_si */
+    COSTS_N_INSNS (68),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+   }
 };
 
 static rtx mips_find_pic_call_symbol (rtx_insn *, rtx, bool);
@@ -5400,7 +5413,12 @@ mips_output_move (rtx dest, rtx src)
 
 	  /* Moves to HI are handled by special .md insns.  */
 	  if (REGNO (dest) == LO_REGNUM)
-	    return "mtlo\t%z1";
+	    {
+	      if (ISA_HAS_MULT)
+		return "mtlo\t%z1";
+	      else
+		return "mtlo\t%z1,$ac0";
+	    }
 
 	  if (DSP_ACC_REG_P (REGNO (dest)))
 	    {
@@ -5453,7 +5471,10 @@ mips_output_move (rtx dest, rtx src)
 		 -mfix-vr4130.  */
 	      if (ISA_HAS_MACCHI)
 		return dbl_p ? "dmacc\t%0,%.,%." : "macc\t%0,%.,%.";
-	      return "mflo\t%0";
+	      if (ISA_HAS_MULT)
+		return "mflo\t%0";
+	      else
+		return "mflo\t%0,$ac0";
 	    }
 
 	  if (DSP_ACC_REG_P (REGNO (src)))
@@ -19008,7 +19029,7 @@ mips_mult_zero_zero_cost (struct mips_sim *state, bool setting)
 static void
 mips_set_fast_mult_zero_zero_p (struct mips_sim *state)
 {
-  if (TARGET_MIPS16 || !ISA_HAS_HILO)
+  if (TARGET_MIPS16 || (!ISA_HAS_HILO && !TARGET_DSP))
     /* No MTLO or MTHI available for MIPS16. Also, when there are no HI or LO
        registers then there is no reason to zero them, arbitrarily choose to
        say that "MULT $0,$0" would be faster.  */
@@ -19404,7 +19425,7 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
 
   /* Ignore zero-length instructions (barriers and the like).  */
   ninsns = get_attr_length (insn) / 4;
-  if (ninsns == 0)
+  if (get_attr_length (insn) == 0)
     return;
 
   /* Work out how many nops are needed.  Note that we only care about
@@ -19419,7 +19440,8 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
      branch instruction was not in a sequence (as the sequence would
      imply it is not actually a compact branch anyway) and the current
      insn is not an inline asm, and can't go in a delay slot.  */
-  else if (*fs_delay && get_attr_can_delay (insn) == CAN_DELAY_NO
+  else if (TARGET_FORBIDDEN_SLOTS && *fs_delay
+	   && get_attr_can_delay (insn) == CAN_DELAY_NO
 	   && GET_CODE (PATTERN (after)) != SEQUENCE
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
@@ -20446,6 +20468,7 @@ static void
 mips_option_override (void)
 {
   int i, regno, mode;
+  unsigned int is_micromips;
 
   if (OPTION_SET_P (mips_isa_option))
     mips_isa_option_info = &mips_cpu_info_table[mips_isa_option];
@@ -20466,6 +20489,7 @@ mips_option_override (void)
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
+  is_micromips = TARGET_MICROMIPS;
   target_flags &= ~TARGET_COMPRESSION;
   mips_base_code_readable = mips_code_readable;
 
@@ -20706,7 +20730,7 @@ mips_option_override (void)
   if (!ISA_HAS_DELAY_SLOTS && mips_cb == MIPS_CB_NEVER)
     {
       error ("unsupported combination: %qs%s %s",
-	      mips_arch_info->name, TARGET_MICROMIPS ? " -mmicromips" : "",
+	      mips_arch_info->name, is_micromips ? " -mmicromips" : "",
 	      "-mcompact-branches=never");
     }
 
@@ -20863,12 +20887,16 @@ mips_option_override (void)
   if (TARGET_DSPR2)
     TARGET_DSP = true;
 
-  if (TARGET_DSP && mips_isa_rev >= 6)
+  if (is_micromips && mips_isa_rev >= 6
+      && (TARGET_DSP || TARGET_DSPR2)
+      && !TARGET_DSPR3)
+    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
+	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
+
+  if (TARGET_DSPR3)
     {
-      error ("the %qs architecture does not support DSP instructions",
-	     mips_arch_info->name);
-      TARGET_DSP = false;
-      TARGET_DSPR2 = false;
+      TARGET_DSP = true;
+      TARGET_DSPR2 = true;
     }
 
   /* Make sure that when TARGET_LOONGSON_MMI is true, TARGET_HARD_FLOAT_ABI
@@ -21064,7 +21092,7 @@ mips_conditional_register_usage (void)
   else
     accessible_reg_set &= ~reg_class_contents[DSP_ACC_REGS];
 
-  if (!ISA_HAS_HILO)
+  if (!ISA_HAS_HILO && !ISA_HAS_DSP)
     accessible_reg_set &= ~reg_class_contents[MD_REGS];
 
   if (!TARGET_HARD_FLOAT)
