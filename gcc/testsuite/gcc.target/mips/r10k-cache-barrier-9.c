@@ -1,4 +1,5 @@
 /* { dg-options "-mr10k-cache-barrier=store -G8 -w" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 /* Test that out-of-range stores to components of static objects
    are protected by a cache barrier.  */

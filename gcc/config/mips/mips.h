@@ -265,7 +265,11 @@ struct mips_cpu_info {
 /* Generate mips16e code. Default 16bit ASE for mips32* and mips64* */
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= MIPS_ISA_MIPS32)
 /* Generate mips16e register save/restore sequences.  */
-#define GENERATE_MIPS16E_SAVE_RESTORE (GENERATE_MIPS16E && mips_abi == ABI_32)
+#define GENERATE_MIPS16E_SAVE_RESTORE ((GENERATE_MIPS16E \
+					|| (TARGET_USE_SAVE_RESTORE \
+					    && !TARGET_MICROMIPS \
+					    && TARGET_SOFT_FLOAT)) \
+				       && mips_abi == ABI_32)
 
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */
@@ -319,6 +323,7 @@ struct mips_cpu_info {
 				     || mips_arch == PROCESSOR_SB1A)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 #define TARGET_XLP                  (mips_arch == PROCESSOR_XLP)
+#define TARGET_INTERAPTIV_MR2	    (mips_arch == PROCESSOR_INTERAPTIV_MR2)
 
 /* Scheduling target defines.  */
 #define TUNE_20KC		    (mips_tune == PROCESSOR_20KC)
@@ -431,6 +436,8 @@ struct mips_cpu_info {
       for (p = macro; *p != 0; p++)				\
         if (*p == '+')                                          \
           *p = 'P';                                             \
+	else if (*p == '-')					\
+	  *p = '_';						\
         else                                                    \
           *p = TOUPPER (*p);                                    \
 								\
@@ -844,7 +851,7 @@ struct mips_cpu_info {
      %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
        |march=34k*|march=74k*|march=m14k*|march=1004k* \
        |march=interaptiv: -mips32r2} \
-     %{march=mips32r3: -mips32r3} \
+     %{march=mips32r3|march=interaptiv-mr2: -mips32r3} \
      %{march=mips32r5|march=p5600|march=m5100|march=m5101: -mips32r5} \
      %{march=mips32r6|march=m6201: -mips32r6} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \
@@ -963,10 +970,12 @@ struct mips_cpu_info {
 #define MIPS_ASE_DSP_SPEC \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
-       |march=interaptiv: -mdsp} \
+       |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
   "%{!mforbidden-slots: \
-     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}"
+     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}" \
+  "%{!mno-mips16e2: \
+     %{march=interaptiv-mr2: -mmips16e2}}"
 
 #define MIPS_ASE_LOONGSON_MMI_SPEC						\
   "%{!mno-loongson-mmi:								\
@@ -1334,6 +1343,10 @@ struct mips_cpu_info {
 #define ISA_HAS_MIPS16E2       (TARGET_MIPS16 && TARGET_MIPS16E2 \
 				&& !TARGET_64BIT)
 
+/* The interAptiv MR2 COPYW/UCOPYW instructions are available.  */
+#define ISA_HAS_COPY		(TARGET_MIPS16 && TARGET_INTERAPTIV_MR2 \
+				 && TARGET_USE_COPYW_UCOPYW)
+
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
    and "addiu $4,$4,1".  */
@@ -1501,6 +1514,7 @@ struct mips_cpu_info {
 %{mtune=*}" \
 FP_ASM_SPEC "\
 %{mmips16e2} \
+%{mmips16-copy:-mmips16cp} \
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */
@@ -2733,7 +2747,6 @@ typedef struct mips_args {
    do not truncate the shift amount at all.  */
 #define SHIFT_COUNT_TRUNCATED (!TARGET_LOONGSON_MMI)
 
-
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -3143,7 +3156,9 @@ while (0)
 /* The maximum number of bytes that can be copied by one iteration of
    a cpymemsi loop; see mips_block_move_loop.  */
 #define MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER \
-  (UNITS_PER_WORD * 4)
+  (ISA_HAS_COPY	  			  \
+  ? UNITS_PER_WORD * 4 * 4		  \
+  : UNITS_PER_WORD * 4)
 
 /* The maximum number of bytes that can be copied by a straight-line
    implementation of cpymemsi; see mips_block_move_straight.  We want
@@ -3174,7 +3189,9 @@ while (0)
 
 #define MOVE_RATIO(speed)				\
   (HAVE_cpymemsi					\
-   ? MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX		\
+   ? (ISA_HAS_COPY					\
+      ? MIPS_MAX_MOVE_BYTES_STRAIGHT / 4 / MOVE_MAX	\
+      : MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX)	\
    : MIPS_CALL_RATIO / 2)
 
 /* For CLEAR_RATIO, when optimizing for size, give a better estimate
@@ -3435,6 +3452,10 @@ struct GTY(())  machine_function {
 
   /* True if the function should generate hazard barrier return.  */
   bool use_hazard_barrier_return_p;
+
+  /* True if we are safe to use SAVE/RESTORE instruction in the
+     prologue/epilogue.  */
+  bool safe_to_use_save_restore;
 };
 #endif
 

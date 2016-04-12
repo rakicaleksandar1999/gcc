@@ -106,7 +106,7 @@ along with GCC; see the file COPYING3.  If not see
    to save and restore registers, and to allocate and deallocate the top
    part of the frame.  */
 #define MIPS_MAX_FIRST_STACK_STEP					\
-  (!TARGET_COMPRESSION ? 0x7ff0						\
+  (!TARGET_COMPRESSION && !TARGET_USE_SAVE_RESTORE ? 0x7ff0	\
    : TARGET_MICROMIPS || GENERATE_MIPS16E_SAVE_RESTORE ? 0x7f8		\
    : TARGET_64BIT ? 0x100 : 0x400)
 
@@ -1413,6 +1413,19 @@ static const struct mips_rtx_cost_data
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   },
+  { /* INTERAPTIV_MR2 (identical to 24KF1_1) */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
   { /* Loongson-2E */
     DEFAULT_COSTS
   },
@@ -1752,7 +1765,7 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (68),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
-   }
+  }
 };
 
 static rtx mips_find_pic_call_symbol (rtx_insn *, rtx, bool);
@@ -2454,7 +2467,10 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
       /* Either this is a simple LUI/ORI pair, or clearing the lowest 16
 	 bits gives a value with at least 17 trailing zeros.  */
       i = mips_build_integer (codes, high);
-      codes[i].code = IOR;
+      if (ISA_HAS_MIPS16E2 && (value & 0x8000) == 0)
+	codes[i].code = PLUS;
+      else
+	codes[i].code = IOR;
       codes[i].value = value & 0xffff;
     }
   return i + 1;
@@ -4660,7 +4676,7 @@ mips_rewrite_small_data_p (rtx x, enum mips_symbol_context context)
 /* Return true if OP refers to small data symbols directly, not through
    a LO_SUM.  CONTEXT is the context in which X appears.  */
 
-static int
+static bool
 mips_small_data_pattern_1 (rtx x, enum mips_symbol_context context)
 {
   subrtx_var_iterator::array_type array;
@@ -4757,6 +4773,11 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
       if (IN_RANGE (x, -128, 127))
 	return 0;
       if (SMALL_OPERAND (x))
+	return COSTS_N_INSNS (1);
+      return -1;
+
+    case IOR:
+      if (ISA_HAS_MIPS16E2 && SMALL_OPERAND_UNSIGNED (x))
 	return COSTS_N_INSNS (1);
       return -1;
 
@@ -6060,6 +6081,15 @@ mips_split_move_insn (rtx dest, rtx src, rtx insn)
 /* Return the appropriate instructions to move SRC into DEST.  Assume
    that SRC is operand 1 and DEST is operand 0.  */
 
+bool
+mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
+{
+  enum mips_symbol_type symbol_type;
+  return (mips_symbolic_constant_p (x, context, &symbol_type)
+	  && symbol_type == SYMBOL_GP_RELATIVE
+	  && CONSTANT_POOL_ADDRESS_P (x));
+}
+
 const char *
 mips_output_move (rtx insn, rtx dest, rtx src)
 {
@@ -6234,7 +6264,13 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	}
 
       if (src_code == HIGH)
-	return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
+	{
+	  if (mips_constant_pool_symbol_in_sdata (XEXP (src, 0),
+	      SYMBOL_CONTEXT_MEM))
+	    return "move\t%0,$28";
+
+	  return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
+	}
 
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
@@ -9133,6 +9169,10 @@ mips_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 	return false;
       if (align < BITS_PER_WORD)
 	return size < UNITS_PER_WORD;
+      /* It is more profitable to use COPYW for at least 2 words.  */
+      if (ISA_HAS_COPY
+	  && align >= BITS_PER_WORD && size >= 2 * UNITS_PER_WORD)
+	return false;
       return size <= MIPS_MAX_MOVE_BYTES_STRAIGHT;
     }
 
@@ -9202,7 +9242,8 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
    Assume that the areas do not overlap.  */
 
 static void
-mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
+mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
+			  HOST_WIDE_INT alignment ATTRIBUTE_UNUSED)
 {
   HOST_WIDE_INT offset, delta;
   unsigned HOST_WIDE_INT bits;
@@ -9302,6 +9343,7 @@ mips_adjust_block_mem (rtx mem, HOST_WIDE_INT length,
 
 static void
 mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
+		      HOST_WIDE_INT alignment,
 		      HOST_WIDE_INT bytes_per_iter)
 {
   rtx_code_label *label;
@@ -9325,7 +9367,7 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   emit_label (label);
 
   /* Emit the loop body.  */
-  mips_block_move_straight (dest, src, bytes_per_iter);
+  mips_block_move_straight (dest, src, bytes_per_iter, alignment);
 
   /* Move on to the next block.  */
   mips_emit_move (src_reg, plus_constant (Pmode, src_reg, bytes_per_iter));
@@ -9340,36 +9382,176 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 
   /* Mop up any left-over bytes.  */
   if (leftover)
-    mips_block_move_straight (dest, src, leftover);
+    mips_block_move_straight (dest, src, leftover, alignment);
   else
     /* Temporary fix for PR79150.  */
     emit_insn (gen_nop ());
 }
 
-/* Expand a cpymemsi instruction, which copies LENGTH bytes from
-   memory reference SRC to memory reference DEST.  */
+/* Expand a cpymemsi instruction using the mips16 copy instruction.  */
 
 bool
-mips_expand_block_move (rtx dest, rtx src, rtx length)
+mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
+{
+  rtx base_dest, base_src;
+  rtx temp;
+  HOST_WIDE_INT offset_dest, offset_src;
+  int word_count, byte_count, offset = 0;
+  rtx first_dest = dest, first_src = src;
+  rtx xdest = XEXP (dest, 0);
+  rtx xsrc = XEXP (src, 0);
+  int align = INTVAL (alignment);
+  bool word_by_pieces_p = false;
+
+  if (!ISA_HAS_COPY)
+    return false;
+
+  gcc_assert (!TARGET_64BIT);
+  gcc_assert (MEM_P (src) && MEM_P (dest));
+
+  if (!CONST_INT_P (length))
+    return false;
+
+  byte_count = INTVAL (length);
+
+  if (byte_count > (mips_movmem_limit == -1
+		    ? MIPS_MAX_MOVE_BYTES_STRAIGHT
+		    : mips_movmem_limit))
+    return false;
+
+  if (byte_count >= MIPS_MAX_MOVE_BYTES_STRAIGHT
+      && align < 4)
+    return false;
+
+  word_count = byte_count / UNITS_PER_WORD;
+  byte_count = byte_count % UNITS_PER_WORD;
+
+  mips_split_plus (xdest, &base_dest, &offset_dest);
+  mips_split_plus (xsrc, &base_src, &offset_src);
+
+  /* In some cases, it's better to move by pieces rather than generating
+     COPYW/UCOPYW:
+     1. Copying 4 bytes when both dest and src are aligned but base+offset is
+	likely to be squashed.
+     2. Copying 4 bytes when the lowest alignment is 2-bytes iff the offsets
+	are not the same or multiples of 16 bytes.  */
+
+  /* Case (1).  */
+  if (word_count == 1
+      && MEM_ALIGN (dest) >= 4 * BITS_PER_UNIT
+      && MEM_ALIGN (src) >= 4 * BITS_PER_UNIT
+      && (offset_dest >= 0 || offset_src >= 0))
+    word_by_pieces_p = true;
+
+  /* Case (2).  */
+  if (word_count == 1 && align >= 2
+      && !(offset_src == offset_dest && offset_src % 16 != 0))
+    word_by_pieces_p = true;
+
+  if (word_by_pieces_p)
+    {
+      rtx src2 = adjust_address (src, BLKmode, offset);
+      rtx dest2 = adjust_address (dest, BLKmode, offset);
+      move_by_pieces (dest2, src2, 4, INTVAL (alignment), RETURN_BEGIN);
+      offset += 4;
+      word_count = 0;
+    }
+
+  if (word_count > 0 && !REG_P (XEXP (dest, 0)))
+    {
+      rtx dest_reg = copy_addr_to_reg (XEXP (dest, 0));
+      first_dest = replace_equiv_address (first_dest, dest_reg);
+    }
+
+  if (word_count > 0 && !REG_P (XEXP (src, 0)))
+    {
+      rtx src_reg = copy_addr_to_reg (XEXP (src, 0));
+      first_src = replace_equiv_address (first_src, src_reg);
+    }
+
+  while (word_count > 0)
+    {
+      int new_word_count, new_offset;
+      rtx adj_src, adj_dest;
+
+      new_offset = offset;
+      new_word_count = word_count >= 4 ? 4 : word_count;
+
+      /* Using a COPYW dst,src,*,1 instruction causes the core to stall
+	 so we generate a lw/sw sequence to get around this core bug.  */
+      if (new_word_count == 1 && align >= 4)
+	{
+	  temp = gen_reg_rtx (SImode);
+	  adj_src = adjust_address (first_src, Pmode, new_offset);
+	  adj_dest = adjust_address (first_dest, Pmode, new_offset);
+	  mips_emit_move (temp, adj_src);
+	  mips_emit_move (adj_dest, temp);
+	}
+      else
+	{
+	  adj_src = adjust_address (first_src, BLKmode, new_offset);
+	  adj_dest = adjust_address (first_dest, BLKmode, new_offset);
+	  set_mem_size (adj_src, new_word_count * 4);
+	  set_mem_size (adj_dest, new_word_count * 4);
+	  emit_insn (gen_mips16_copy (adj_dest, adj_src, GEN_INT (new_offset),
+				      GEN_INT (new_word_count), alignment));
+	}
+
+      offset += new_word_count * 4;
+      word_count = word_count >= 4 ? word_count - 4 : 0;
+
+      if (offset > 496)
+	{
+	  rtx dest_reg = copy_addr_to_reg (XEXP (adj_dest, 0));
+	  rtx src_reg = copy_addr_to_reg (XEXP (adj_src, 0));
+	  first_dest = replace_equiv_address (first_dest, dest_reg);
+	  first_src = replace_equiv_address (first_src, src_reg);
+	  offset = 0;
+	}
+    }
+
+  if (byte_count > 0)
+    {
+      rtx src2 = adjust_address (src, BLKmode, offset);
+      rtx dest2 = adjust_address (dest, BLKmode, offset);
+      move_by_pieces (dest2, src2, byte_count, align, RETURN_BEGIN);
+    }
+
+  return true;
+}
+
+/* Expand a cpymemsi instruction, which copies LENGTH bytes from
+   memory reference SRC to memory reference DEST.  The lowest alignment
+   of SRC and DEST is specified by ALIGNMENT.  */
+
+bool
+mips_expand_block_move (rtx dest, rtx src, rtx length, rtx alignment)
 {
   if (!CONST_INT_P (length))
     return false;
 
+  if (TARGET_MIPS16 && !ISA_HAS_COPY)
+    return false;
+
   if (mips_isa_rev >= 6 && !ISA_HAS_UNALIGNED_ACCESS
-      && (MEM_ALIGN (src) < MIPS_MIN_MOVE_MEM_ALIGN
-	  || MEM_ALIGN (dest) < MIPS_MIN_MOVE_MEM_ALIGN))
+      && !(INTVAL (alignment) * BITS_PER_UNIT >= MIPS_MIN_MOVE_MEM_ALIGN
+	  || ISA_HAS_COPY))
     return false;
 
   if (mips_movmem_limit == -1 || INTVAL (length) < mips_movmem_limit)
     {
-      if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER)
+      if (ISA_HAS_COPY)
+	  return mips16_expand_copy (dest, src, length, alignment);
+      else if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER)
   {
-    mips_block_move_straight (dest, src, INTVAL (length));
+    mips_block_move_straight (dest, src, INTVAL (length),
+				INTVAL (alignment));
     return true;
   }
       else if (optimize)
   {
     mips_block_move_loop (dest, src, INTVAL (length),
+			  INTVAL (alignment),
 			  MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER);
     return true;
   }
@@ -12287,6 +12469,8 @@ mips_compute_frame_info (void)
   struct mips_frame_info *frame;
   HOST_WIDE_INT offset, size;
   unsigned int regno, i;
+  int global_reg_used;
+  int local_reg_used;
 
   /* Skip re-computing the frame info after reload completed.  */
   if (reload_completed)
@@ -12401,10 +12585,61 @@ mips_compute_frame_info (void)
 	frame->mask |= 1 << (EH_RETURN_DATA_REGNO (i) - GP_REG_FIRST);
       }
 
+  /* The SAVE and RESTORE instructions have two ranges of registers:
+     $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
+     save all later registers too.  This can cause problems if the user has
+     placed a global value into a register that falls into one of these
+     ranges and the function uses a callee saved register that also in the
+     same range.  In this case the global value could be accidently saved
+     and restored on function entry and exit which means any changes made to
+     its value in the function will be lost.
+
+     The code below checks for this case, and if it is found it turns off
+     the use of the SAVE/RESTORE instruction in this function.
+
+     This approach is not optimal because it should really just check that
+     the number of the register used for the global value occurs before
+     one of the callee saved registers.  However as the use of forcing global
+     values into a register is small it is fine to use the unoptimal version
+     of the code for the moment.  */
+  cfun->machine->safe_to_use_save_restore = true;
+
+  global_reg_used = 0;
+  local_reg_used = 0;
+
+  for (i = 0 ; i < ARRAY_SIZE (mips16e_s2_s8_regs) ; i++)
+     {
+       regno = mips16e_s2_s8_regs[i];
+       if (global_regs[regno])
+	 global_reg_used = 1;
+
+       if (BITSET_P (frame->mask, regno))
+	 local_reg_used = 1;
+     }
+
+  if (global_reg_used && local_reg_used)
+    cfun->machine->safe_to_use_save_restore = false;
+
+  global_reg_used = 0;
+  local_reg_used = 0;
+
+  for (i = 0 ; i < ARRAY_SIZE (mips16e_a0_a3_regs) ; i++)
+     {
+       regno = mips16e_a0_a3_regs[i];
+       if (global_regs[regno])
+	 global_reg_used = 1;
+
+       if (BITSET_P (frame->mask, regno))
+	 local_reg_used = 1;
+     }
+
+  if (global_reg_used && local_reg_used)
+    cfun->machine->safe_to_use_save_restore = false;
+
   /* The MIPS16e SAVE and RESTORE instructions have two ranges of registers:
      $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
      save all later registers too.  */
-  if (GENERATE_MIPS16E_SAVE_RESTORE)
+  if (GENERATE_MIPS16E_SAVE_RESTORE && cfun->machine->safe_to_use_save_restore)
     {
       mips16e_mask_registers (&frame->mask, mips16e_s2_s8_regs,
  			      ARRAY_SIZE (mips16e_s2_s8_regs), &frame->num_gp);
@@ -13495,7 +13730,9 @@ mips_expand_prologue (void)
       HOST_WIDE_INT step1;
 
       step1 = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
-      if (GENERATE_MIPS16E_SAVE_RESTORE)
+      if (GENERATE_MIPS16E_SAVE_RESTORE
+	  && !cfun->machine->interrupt_handler_p
+	  && cfun->machine->safe_to_use_save_restore)
  	{
  	  HOST_WIDE_INT offset;
  	  unsigned int mask, regno;
@@ -13945,7 +14182,9 @@ mips_expand_epilogue (bool sibcall_p)
     emit_insn (gen_blockage ());
 
   mips_epilogue.cfa_restore_sp_offset = step2;
-  if (GENERATE_MIPS16E_SAVE_RESTORE && frame->mask != 0)
+  if (GENERATE_MIPS16E_SAVE_RESTORE && frame->mask != 0
+      && !cfun->machine->interrupt_handler_p
+      && cfun->machine->safe_to_use_save_restore)
     {
       unsigned int regno, mask;
       HOST_WIDE_INT offset;
@@ -21555,6 +21794,32 @@ mips_option_override (void)
 	      "-mcompact-branches=never");
     }
 
+  /* Enable the use of interAptiv MIPS32 SAVE/RESTORE instructions.  */
+  if (TARGET_USE_SAVE_RESTORE == -1)
+    {
+      if (TARGET_INTERAPTIV_MR2)
+	TARGET_USE_SAVE_RESTORE = 1;
+      else
+	TARGET_USE_SAVE_RESTORE = 0;
+    }
+  else if (TARGET_USE_SAVE_RESTORE
+	   && !TARGET_INTERAPTIV_MR2)
+    error ("unsupported combination: %qs %s",
+	   mips_arch_info->name, "-muse-save-restore");
+
+  /* Enable the use of interAptiv MIPS16 COPYW/UCOPYW instructions.  */
+  if (TARGET_USE_COPYW_UCOPYW == -1)
+    {
+      if (TARGET_INTERAPTIV_MR2)
+	TARGET_USE_COPYW_UCOPYW = 1;
+      else
+	TARGET_USE_COPYW_UCOPYW = 0;
+    }
+  else if (TARGET_USE_COPYW_UCOPYW
+	   && !TARGET_INTERAPTIV_MR2)
+    error ("unsupported combination: %qs %s",
+	   mips_arch_info->name, "-muse-copyw_ucopyw");
+
   /* Require explicit relocs for MIPS R6 onwards.  This enables simplification
      of the compact branch and jump support through the backend.  */
   if (!TARGET_EXPLICIT_RELOCS && mips_isa_rev >= 6)
@@ -24221,7 +24486,6 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
   return false;
 }
-
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.half\t"

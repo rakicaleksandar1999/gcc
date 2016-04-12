@@ -559,3 +559,9 @@ mfunc-opt-list=FILE	Use to specify per function optimizations.
 
 mblockmov-limit=
 Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
+
+muse-save-restore
+Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
+
+muse-copyw-ucopyw
+Target Undocumented Var(TARGET_USE_COPYW_UCOPYW) Init(-1)
