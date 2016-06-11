@@ -384,7 +384,15 @@ void internal_sleep(unsigned seconds) {
 void SleepForSeconds(unsigned seconds) {
   internal_usleep((u64)seconds * 1000 * 1000);
 }
-void SleepForMillis(unsigned millis) { internal_usleep((u64)millis * 1000); }
+void SleepForMillis (unsigned millis)
+{
+  #if SANITIZER_UCLIBC
+  struct timespec tv = {0, millis * 1000000};
+  nanosleep (&tv, NULL);
+  #else
+  internal_usleep ((u64)millis * 1000);
+  #endif
+}
 
 void WaitForDebugger(unsigned seconds, const char *label) {
   if (seconds) {

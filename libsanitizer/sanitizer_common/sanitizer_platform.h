@@ -140,6 +140,15 @@
   (SANITIZER_FREEBSD || SANITIZER_LINUX || SANITIZER_APPLE || \
    SANITIZER_NETBSD || SANITIZER_SOLARIS)
 
+#include <features.h> //for uclibc
+
+#if defined(__UCLIBC__)
+# define SANITIZER_UCLIBC  1
+#else
+# define SANITIZER_UCLIBC  0
+#endif
+
+
 #if __LP64__ || defined(_WIN64)
 #  define SANITIZER_WORDSIZE 64
 #else

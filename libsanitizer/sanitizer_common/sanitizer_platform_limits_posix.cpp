@@ -35,7 +35,9 @@
 #include <net/if.h>
 #include <netdb.h>
 #include <poll.h>
+#if !SANITIZER_UCLIBC
 #include <pthread.h>
+#endif
 #include <pwd.h>
 #include <signal.h>
 #include <stddef.h>
@@ -62,15 +64,19 @@
 
 #if !SANITIZER_ANDROID
 #include <sys/mount.h>
+#if !SANITIZER_UCLIBC
 #include <sys/timeb.h>
 #include <utmpx.h>
+#endif
 #endif
 
 #if SANITIZER_LINUX
 #include <malloc.h>
 #include <mntent.h>
 #include <netinet/ether.h>
+#if !SANITIZER_UCLIBC //for redefine
 #include <sys/sysinfo.h>
+#endif
 #include <sys/vt.h>
 #include <linux/cdrom.h>
 #include <linux/fd.h>
@@ -92,7 +98,9 @@
 #endif
 
 #if SANITIZER_LINUX
-# include <utime.h>
+# if !SANITIZER_UCLIBC
+#  include <utime.h>
+# endif
 # include <sys/ptrace.h>
 #    if defined(__mips64) || defined(__aarch64__) || defined(__arm__) ||       \
         defined(__hexagon__) || defined(__loongarch__) || SANITIZER_RISCV64 || \
@@ -109,7 +117,7 @@ typedef struct user_fpregs elf_fpregset_t;
 # include <semaphore.h>
 #endif
 
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 #include <ifaddrs.h>
 #include <sys/ucontext.h>
 #include <wordexp.h>
@@ -122,7 +130,9 @@ typedef struct user_fpregs elf_fpregset_t;
 #      include <net/if_ppp.h>
 #      include <netax25/ax25.h>
 #      include <netipx/ipx.h>
-#      include <netrom/netrom.h>
+#      if !SANITIZER_UCLIBC
+#	include <netrom/netrom.h>
+#      endif
 #      include <obstack.h>
 #      if HAVE_RPC_XDR_H
 #        include <rpc/xdr.h>
@@ -200,12 +210,16 @@ namespace __sanitizer {
   unsigned timeval_sz = sizeof(timeval);
   unsigned uid_t_sz = sizeof(uid_t);
   unsigned gid_t_sz = sizeof(gid_t);
+  #if !SANITIZER_UCLIBC
   unsigned mbstate_t_sz = sizeof(mbstate_t);
+  #endif
   unsigned sigset_t_sz = sizeof(sigset_t);
   unsigned struct_timezone_sz = sizeof(struct timezone);
   unsigned struct_tms_sz = sizeof(struct tms);
   unsigned struct_sigevent_sz = sizeof(struct sigevent);
+  #if !SANITIZER_UCLIBC
   unsigned struct_sched_param_sz = sizeof(struct sched_param);
+  #endif
   unsigned struct_regex_sz = sizeof(regex_t);
   unsigned struct_regmatch_sz = sizeof(regmatch_t);
 
@@ -271,7 +285,9 @@ namespace __sanitizer {
 #if SANITIZER_LINUX
   unsigned struct_rlimit_sz = sizeof(struct rlimit);
   unsigned struct_timespec_sz = sizeof(struct timespec);
+  #if !SANITIZER_UCLIBC
   unsigned struct_utimbuf_sz = sizeof(struct utimbuf);
+  #endif
   unsigned struct_itimerspec_sz = sizeof(struct itimerspec);
 #endif // SANITIZER_LINUX
 
@@ -327,7 +343,7 @@ namespace __sanitizer {
 #if !SANITIZER_APPLE && !SANITIZER_FREEBSD
   unsigned struct_utmp_sz = sizeof(struct utmp);
 #endif
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
   unsigned struct_utmpx_sz = sizeof(struct utmpx);
 #endif
 
@@ -351,7 +367,7 @@ unsigned struct_ElfW_Phdr_sz = sizeof(ElfW(Phdr));
 unsigned struct_ElfW_Phdr_sz = sizeof(Elf_Phdr);
 #endif
 
-#if SANITIZER_GLIBC
+#if SANITIZER_GLIBC && !SANITIZER_UCLIBC
   int glob_nomatch = GLOB_NOMATCH;
   int glob_altdirfunc = GLOB_ALTDIRFUNC;
 #endif
@@ -525,7 +541,9 @@ unsigned struct_ElfW_Phdr_sz = sizeof(Elf_Phdr);
   unsigned struct_kbkeycode_sz = sizeof(struct kbkeycode);
   unsigned struct_kbsentry_sz = sizeof(struct kbsentry);
   unsigned struct_mtconfiginfo_sz = sizeof(struct mtconfiginfo);
+#if !SANITIZER_UCLIBC
   unsigned struct_nr_parms_struct_sz = sizeof(struct nr_parms_struct);
+#endif
   unsigned struct_scc_modem_sz = sizeof(struct scc_modem);
   unsigned struct_scc_stat_sz = sizeof(struct scc_stat);
   unsigned struct_serial_multiport_struct_sz
@@ -894,7 +912,11 @@ unsigned struct_ElfW_Phdr_sz = sizeof(Elf_Phdr);
   unsigned IOCTL_EQL_SETSLAVECFG = EQL_SETSLAVECFG;
 #if EV_VERSION > (0x010000)
   unsigned IOCTL_EVIOCGKEYCODE_V2 = EVIOCGKEYCODE_V2;
+#if !SANITIZER_UCLIBC
   unsigned IOCTL_EVIOCGPROP = EVIOCGPROP(0);
+#else
+  unsigned IOCTL_EVIOCGPROP = IOCTL_NOT_PRESENT;
+#endif
   unsigned IOCTL_EVIOCSKEYCODE_V2 = EVIOCSKEYCODE_V2;
 #else
   unsigned IOCTL_EVIOCGKEYCODE_V2 = IOCTL_NOT_PRESENT;
@@ -958,10 +980,12 @@ unsigned struct_ElfW_Phdr_sz = sizeof(Elf_Phdr);
   unsigned IOCTL_SIOCAX25SETPARMS = SIOCAX25SETPARMS;
   unsigned IOCTL_SIOCDEVPLIP = SIOCDEVPLIP;
   unsigned IOCTL_SIOCIPXCFGDATA = SIOCIPXCFGDATA;
+#if !SANITIZER_UCLIBC
   unsigned IOCTL_SIOCNRDECOBS = SIOCNRDECOBS;
   unsigned IOCTL_SIOCNRGETPARMS = SIOCNRGETPARMS;
   unsigned IOCTL_SIOCNRRTCTL = SIOCNRRTCTL;
   unsigned IOCTL_SIOCNRSETPARMS = SIOCNRSETPARMS;
+#endif
 #endif
   unsigned IOCTL_TIOCGSERIAL = TIOCGSERIAL;
   unsigned IOCTL_TIOCSERGETMULTI = TIOCSERGETMULTI;
@@ -1033,7 +1057,7 @@ CHECK_SIZE_AND_OFFSET(dl_phdr_info, dlpi_phdr);
 CHECK_SIZE_AND_OFFSET(dl_phdr_info, dlpi_phnum);
 #endif // SANITIZER_LINUX || SANITIZER_FREEBSD
 
-#if SANITIZER_GLIBC || SANITIZER_FREEBSD
+#if (SANITIZER_GLIBC || SANITIZER_FREEBSD) && !SANITIZER_UCLIBC
 CHECK_TYPE_SIZE(glob_t);
 CHECK_SIZE_AND_OFFSET(glob_t, gl_pathc);
 CHECK_SIZE_AND_OFFSET(glob_t, gl_pathv);
@@ -1172,7 +1196,7 @@ CHECK_TYPE_SIZE(__kernel_loff_t);
 CHECK_TYPE_SIZE(__kernel_fd_set);
 #endif
 
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 CHECK_TYPE_SIZE(wordexp_t);
 CHECK_SIZE_AND_OFFSET(wordexp_t, we_wordc);
 CHECK_SIZE_AND_OFFSET(wordexp_t, we_wordv);
@@ -1240,7 +1264,7 @@ CHECK_TYPE_SIZE(clock_t);
 CHECK_TYPE_SIZE(clockid_t);
 #endif
 
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 CHECK_TYPE_SIZE(ifaddrs);
 CHECK_SIZE_AND_OFFSET(ifaddrs, ifa_next);
 CHECK_SIZE_AND_OFFSET(ifaddrs, ifa_name);
@@ -1270,7 +1294,7 @@ CHECK_SIZE_AND_OFFSET(ifaddrs, ifa_data);
 COMPILER_CHECK(sizeof(__sanitizer_struct_mallinfo) == sizeof(struct mallinfo));
 #endif
 
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 CHECK_TYPE_SIZE(timeb);
 CHECK_SIZE_AND_OFFSET(timeb, time);
 CHECK_SIZE_AND_OFFSET(timeb, millitm);
@@ -1316,7 +1340,7 @@ COMPILER_CHECK(__sanitizer_XDR_DECODE == XDR_DECODE);
 COMPILER_CHECK(__sanitizer_XDR_FREE == XDR_FREE);
 #endif
 
-#if SANITIZER_GLIBC
+#if SANITIZER_GLIBC && !SANITIZER_UCLIBC
 COMPILER_CHECK(sizeof(__sanitizer_FILE) <= sizeof(FILE));
 CHECK_SIZE_AND_OFFSET(FILE, _flags);
 CHECK_SIZE_AND_OFFSET(FILE, _IO_read_ptr);
@@ -1334,6 +1358,7 @@ CHECK_SIZE_AND_OFFSET(FILE, _markers);
 CHECK_SIZE_AND_OFFSET(FILE, _chain);
 CHECK_SIZE_AND_OFFSET(FILE, _fileno);
 
+#if !SANITIZER_UCLIBC
 COMPILER_CHECK(sizeof(__sanitizer__obstack_chunk) <= sizeof(_obstack_chunk));
 CHECK_SIZE_AND_OFFSET(_obstack_chunk, limit);
 CHECK_SIZE_AND_OFFSET(_obstack_chunk, prev);
@@ -1348,6 +1373,7 @@ CHECK_SIZE_AND_OFFSET(cookie_io_functions_t, read);
 CHECK_SIZE_AND_OFFSET(cookie_io_functions_t, write);
 CHECK_SIZE_AND_OFFSET(cookie_io_functions_t, seek);
 CHECK_SIZE_AND_OFFSET(cookie_io_functions_t, close);
+#endif
 #endif  // SANITIZER_GLIBC
 
 #if SANITIZER_LINUX || SANITIZER_FREEBSD

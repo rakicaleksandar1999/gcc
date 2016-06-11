@@ -71,7 +71,9 @@
 #  include <sys/syscall.h>
 #  include <sys/time.h>
 #  include <sys/types.h>
-#  include <ucontext.h>
+#  if !SANITIZER_UCLIBC
+#    include <ucontext.h>
+#  endif
 #  include <unistd.h>
 
 #  if SANITIZER_LINUX
@@ -1215,6 +1217,8 @@ uptr GetPageSize() {
   return (uptr)pz;
 #    elif SANITIZER_USE_GETAUXVAL
   return getauxval(AT_PAGESZ);
+#    elif defined(__mips__) && SANITIZER_UCLIBC
+  return 4096;
 #    else
   return sysconf(_SC_PAGESIZE);  // EXEC_PAGESIZE may not be trustworthy.
 #    endif

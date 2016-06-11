@@ -126,6 +126,7 @@ void SanitizerInitializeUnwinder() {
 void BufferedStackTrace::UnwindSlow(uptr pc, u32 max_depth) {
   CHECK_GE(max_depth, 2);
   size = 0;
+#if !(defined(__mips__) && SANITIZER_UCLIBC)
   UnwindTraceArg arg = {this, Min(max_depth + 1, kStackTraceMax)};
   _Unwind_Backtrace(Unwind_Trace, &arg);
   // We need to pop a few frames so that pc is on top.
@@ -140,6 +141,7 @@ void BufferedStackTrace::UnwindSlow(uptr pc, u32 max_depth) {
     to_pop = 1;
   PopStackFrames(to_pop);
   trace_buffer[0] = pc;
+#endif
 }
 
 void BufferedStackTrace::UnwindSlow(uptr pc, void *context, u32 max_depth) {
