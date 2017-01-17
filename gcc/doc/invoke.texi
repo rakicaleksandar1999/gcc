@@ -1153,6 +1153,7 @@ Objective-C and Objective-C++ Dialects}.
 -membedded-data  -mno-embedded-data
 -msdata-num=@var{num}
 -msdata-opt-list=@var{file}
+-munique-sections=@var{file}
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata
 -mcode-readable=@var{setting}
 -mdead-loads -mno-dead-loads
@@ -28841,6 +28842,15 @@ small data model.  This is equivalent to adding
 @code{__attribute__((section (".sdata"))} to the declaration in the source.
 For this option to take effect on uninitialised globals then
 @option{-fno-common} must also be used.
+
+@opindex -munique-sections
+@item -munique-sections
+Read a list of section names from a file that specify which of the explicitly
+named sections should have unique names.  This is the equivalent of adding
+@code{__attribute__((section ("section_name.symbol_name")))} to the source code
+declaration.
+Having a data symbol which is matched by both @option{-msdata-opt-list} and
+@option{-munique-sections} will cause a compilation error.
 
 @opindex muninit-const-in-rodata
 @opindex mno-uninit-const-in-rodata
