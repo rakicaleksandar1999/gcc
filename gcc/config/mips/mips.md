@@ -102,6 +102,8 @@
   ;; Floating-point unspecs.
   UNSPEC_FMIN
   UNSPEC_FMAX
+  UNSPEC_FCLASS
+  UNSPEC_FRINT
 
   ;; HI/LO moves.
   UNSPEC_MFHI
@@ -395,7 +397,7 @@
    shift,slt,signext,clz,pop,trap,imul,imul3,imul3nc,imadd,idiv,idiv3,move,
    fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,
    frsqrt,frsqrt1,frsqrt2,fminmax,dspmac,dspmacsat,accext,accmod,dspalu,
-   dspalusat,multi,atomic,syncloop,nop,ghost,multimem,
+   dspalusat,multi,atomic,syncloop,nop,ghost,multimem,fclass,frint,
    simd_div,simd_fclass,simd_flog2,simd_fadd,simd_fcvt,simd_fmul,simd_fmadd,
    simd_fdiv,simd_bitins,simd_bitmov,simd_insert,simd_sld,simd_mul,simd_fcmp,
    simd_fexp2,simd_int_arith,simd_bit,simd_shift,simd_splat,simd_fill,
@@ -2656,8 +2658,9 @@
 	(fma:ANYF (neg:ANYF (match_operand:ANYF 1 "register_operand"))
 		  (match_operand:ANYF 2 "register_operand")
 		  (match_operand:ANYF 3 "register_operand")))]
-  "(ISA_HAS_FUSED_MADD3 || ISA_HAS_FUSED_MADD4)
-   && !HONOR_SIGNED_ZEROS (<MODE>mode)")
+  "((ISA_HAS_FUSED_MADD3 || ISA_HAS_FUSED_MADD4)
+    && !HONOR_SIGNED_ZEROS (<MODE>mode))
+   || ISA_HAS_FUSED_MADDF")
 
 (define_insn "*fnma<mode>4_nmsub3"
   [(set (match_operand:ANYF 0 "register_operand" "=f")
@@ -2676,6 +2679,16 @@
 		  (match_operand:ANYF 3 "register_operand" "f")))]
   "ISA_HAS_FUSED_MADD4 && !HONOR_SIGNED_ZEROS (<MODE>mode)"
   "nmsub.<fmt>\t%0,%3,%1,%2"
+  [(set_attr "type" "fmadd")
+   (set_attr "mode" "<UNITMODE>")])
+
+(define_insn "*fnma<mode>4_msubf"
+  [(set (match_operand:ANYF 0 "register_operand" "=f")
+	(fma:ANYF (neg:ANYF (match_operand:ANYF 1 "register_operand" "f"))
+		  (match_operand:ANYF 2 "register_operand" "f")
+		  (match_operand:ANYF 3 "register_operand" "0")))]
+  "ISA_HAS_FUSED_MADDF"
+  "msubf.<fmt>\t%0,%1,%2"
   [(set_attr "type" "fmadd")
    (set_attr "mode" "<UNITMODE>")])
 
@@ -8155,6 +8168,48 @@
   "max.<fmt>\t%0,%1,%2"
   [(set_attr "type" "fminmax")
   (set_attr "mode" "<UNITMODE>")])
+
+(define_insn "fmax_a_<mode>"
+  [(set (match_operand:SCALARF 0 "register_operand" "=f")
+	(if_then_else
+	   (gt (abs:SCALARF (match_operand:SCALARF 1 "register_operand" "f"))
+	       (abs:SCALARF (match_operand:SCALARF 2 "register_operand" "f")))
+	   (match_dup 1)
+	   (match_dup 2)))]
+  "ISA_HAS_FMIN_FMAX"
+  "maxa.<fmt>\t%0,%1,%2"
+  [(set_attr "type" "fminmax")
+   (set_attr "mode" "<UNITMODE>")])
+
+(define_insn "fmin_a_<mode>"
+  [(set (match_operand:SCALARF 0 "register_operand" "=f")
+	(if_then_else
+	   (lt (abs:SCALARF (match_operand:SCALARF 1 "register_operand" "f"))
+	       (abs:SCALARF (match_operand:SCALARF 2 "register_operand" "f")))
+	   (match_dup 1)
+	   (match_dup 2)))]
+  "ISA_HAS_FMIN_FMAX"
+  "mina.<fmt>\t%0,%1,%2"
+  [(set_attr "type" "fminmax")
+   (set_attr "mode" "<UNITMODE>")])
+
+(define_insn "fclass_<mode>"
+  [(set (match_operand:ANYF 0 "register_operand" "=f")
+	(unspec:ANYF [(match_operand:ANYF 1 "register_operand" "f")]
+			 UNSPEC_FCLASS))]
+  "ISA_HAS_FCLASS"
+  "fclass.<fmt>\t%0,%1"
+  [(set_attr "type" "fclass")
+   (set_attr "mode" "<UNITMODE>")])
+
+(define_insn "frint_<mode>"
+  [(set (match_operand:ANYF 0 "register_operand" "=f")
+	(unspec:ANYF [(match_operand:ANYF 1 "register_operand" "f")]
+		     UNSPEC_FRINT))]
+  "ISA_HAS_RINT"
+  "rint.<fmt>\t%0,%1"
+  [(set_attr "type" "frint")
+   (set_attr "mode" "<UNITMODE>")])
 
 ;; 2 HI loads are joined.
 (define_peephole2
