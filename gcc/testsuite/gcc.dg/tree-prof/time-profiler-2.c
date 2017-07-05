@@ -1,4 +1,5 @@
 /* { dg-options "-O2 -fdump-ipa-profile -fno-ipa-vrp" } */
+/* { dg-skip-if "This test is unstable for MIPS " { "mips*-*-*" } } */
 
 #include <unistd.h>
 
