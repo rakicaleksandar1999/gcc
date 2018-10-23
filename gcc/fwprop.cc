@@ -614,15 +614,14 @@ try_fwprop_subst (use_info *use, set_info *def,
 
 /* For the given single_set INSN, containing SRC known to be a
    ZERO_EXTEND or SIGN_EXTEND of a register, return true if INSN
-   is redundant due to the register being set by a LOAD_EXTEND_OP
-   load from memory.  */
+   is redundant due to the register being set by ZERO_EXTRACT or
+   SIGN_EXTRACT of appropriate size or by LOAD_EXTEND_OP load
+   from memory.  */
 
 static bool
-free_load_extend (rtx src, insn_info *insn)
+free_extend (rtx src, insn_info *insn)
 {
   rtx reg = XEXP (src, 0);
-  if (load_extend_op (GET_MODE (reg)) != GET_CODE (src))
-    return false;
 
   def_info *def = nullptr;
   for (use_info *use : insn->uses ())
@@ -644,10 +643,35 @@ free_load_extend (rtx src, insn_info *insn)
     {
       rtx patt = PATTERN (def_rtl);
 
-      if (GET_CODE (patt) == SET
+      if (GET_CODE (patt) != SET)
+  return false;
+
+#ifdef LOAD_EXTEND_OP
+      if (LOAD_EXTEND_OP (GET_MODE (reg)) == GET_CODE (src)
 	  && GET_CODE (SET_SRC (patt)) == MEM
 	  && rtx_equal_p (SET_DEST (patt), reg))
 	return true;
+#endif
+
+      int extract_code = GET_CODE (src) == ZERO_EXTEND
+    ? ZERO_EXTRACT : SIGN_EXTRACT;
+
+      if (GET_CODE (SET_SRC (patt)) == extract_code
+    && GET_MODE (SET_SRC (patt)) == GET_MODE (src)
+	  && INTVAL (XEXP (SET_SRC (patt), 1))
+	     <= GET_MODE_BITSIZE (GET_MODE (reg)).to_constant ())
+  {
+    if (GET_CODE (SET_DEST (patt)) == SUBREG
+      && GET_MODE (SET_DEST (patt)) == GET_MODE (src)
+      && rtx_equal_p (XEXP (SET_DEST (patt), 0), reg))
+      return true;
+
+    if (REG_P (SET_DEST (patt))
+      && GET_MODE (SET_DEST (patt)) == GET_MODE (src)
+      && REGNO (SET_DEST (patt)) == REGNO (reg))
+      return true;
+  }
+
     }
   return false;
 }
@@ -709,7 +733,7 @@ forward_propagate_subreg (use_info *use, set_info *def,
 	  && REG_P (XEXP (src, 0))
 	  && REGNO (XEXP (src, 0)) >= FIRST_PSEUDO_REGISTER
 	  && GET_MODE (XEXP (src, 0)) == use_mode
-	  && !free_load_extend (src, def->insn ())
+	  && !free_extend (src, def->insn ())
 	  && (targetm.mode_rep_extended (int_use_mode, src_mode)
 	      != (int) GET_CODE (src)))
 	return try_fwprop_subst (use, def, loc, use_reg, XEXP (src, 0));
