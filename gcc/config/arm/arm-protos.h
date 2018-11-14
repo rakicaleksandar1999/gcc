@@ -206,7 +206,7 @@ extern rtx arm_stack_protect_tls_canary_mem (bool);
 
 #if defined TREE_CODE
 extern void arm_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
-extern bool arm_pad_reg_upward (machine_mode, tree, int);
+extern bool arm_pad_reg_upward (machine_mode, tree, int, int);
 #endif
 extern int arm_apply_result_size (void);
 extern opt_machine_mode arm_get_mask_mode (machine_mode mode);

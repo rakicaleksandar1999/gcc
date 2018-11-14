@@ -917,7 +917,7 @@ char *aarch64_output_simd_xor_imm (rtx, unsigned);
 
 char *aarch64_output_sve_mov_immediate (rtx);
 char *aarch64_output_sve_ptrues (rtx);
-bool aarch64_pad_reg_upward (machine_mode, const_tree, bool);
+bool aarch64_pad_reg_upward (machine_mode, const_tree, bool, int);
 bool aarch64_regno_ok_for_base_p (int, bool);
 bool aarch64_regno_ok_for_index_p (int, bool);
 bool aarch64_reinterpret_float_as_int (rtx value, unsigned HOST_WIDE_INT *fail);

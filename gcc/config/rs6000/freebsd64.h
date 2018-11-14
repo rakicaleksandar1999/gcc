@@ -172,7 +172,7 @@ extern int dot_symbols;
 /* Specify padding for the last element of a block move between
    registers and memory.  FIRST is nonzero if this is the only
    element.  */
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST, NAMED) \
   (!(FIRST) ? PAD_UPWARD : targetm.calls.function_arg_padding (MODE, TYPE))
 
 /* FreeBSD doesn't support saving and restoring 64-bit regs with a 32-bit
