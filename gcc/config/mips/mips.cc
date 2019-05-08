@@ -179,10 +179,13 @@ static int *consumer_luid = NULL;
   ((0xf << 26) | ((DEST) << 16) | (VALUE))
 
 /* Return the opcode to jump to register DEST.  When the JR opcode is not
-   available use JALR $0, DEST.  */
+   available use JALR $0, DEST.
+   Use hazard barrier for TARGET_FIX_I6500.  */
 #define MIPS_JR(DEST) \
-  (TARGET_CB_ALWAYS ? ((0x1b << 27) | ((DEST) << 16)) \
-		    : (((DEST) << 21) | (ISA_HAS_JR ? 0x8 : 0x9)))
+  (TARGET_CB_ALWAYS && !TARGET_FIX_I6500 \
+  ? ((0x1b << 27) | ((DEST) << 16)) \
+  : (((DEST) << 21) | (ISA_HAS_JR ? 0x8 : 0x9) \
+      | (TARGET_FIX_I6500 ? (0x1 << 10) : 0x0)))
 
 /* Return the opcode for:
 
@@ -3993,7 +3996,7 @@ mips_idiv_insns (machine_mode mode)
       if (GENERATE_DIVIDE_TRAPS && !MSA_SUPPORTED_MODE_P (mode))
         count++;
       else
-        count += 2;
+	count += !TARGET_FIX_I6500 ? 2 : 3;
     }
 
   if (TARGET_FIX_R4000 || TARGET_FIX_R4400)
@@ -15631,6 +15634,9 @@ mips_adjust_insn_length (rtx_insn *insn, int length)
 
       /* Add the length of an indirect jump, ignoring the delay slot.  */
       length += TARGET_COMPRESSION ? 2 : 4;
+
+      if (TARGET_FIX_I6500 && !TARGET_ABSOLUTE_JUMPS)
+	length += 4;
     }
 
   /* A unconditional jump has an unfilled delay slot if it is not part
@@ -15799,6 +15805,10 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
   else
     {
       mips_output_load_label (taken);
+
+      if (TARGET_FIX_I6500)
+	output_asm_insn ("ehb", 0);
+
       if (TARGET_CB_MAYBE)
 	output_asm_insn ("jrc\t%@%]", 0);
       else
@@ -16179,6 +16189,10 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
 			       at, oldval, inclusive_mask, NULL);
 	  tmp1 = at;
 	}
+
+      if (TARGET_FIX_I6500)
+	mips_multi_add_insn ("ehb", NULL);
+
       if (TARGET_CB_NEVER)
 	mips_multi_add_insn ("bne\t%0,%z1,2f", tmp1, required_oldval, NULL);
 
@@ -16443,6 +16457,9 @@ mips_output_division (const char *division, rtx *operands)
 	}
       else
 	{
+	  if (TARGET_FIX_I6500)
+	    output_asm_insn ("ehb", NULL);
+
 	  if (flag_delayed_branch)
 	    {
 	      output_asm_insn ("%(bne\t%2,%.,1f", operands);
@@ -16471,6 +16488,9 @@ mips_msa_output_division (const char *division, rtx *operands)
   s = division;
   if (TARGET_CHECK_ZERO_DIV)
     {
+      if (TARGET_FIX_I6500)
+	output_asm_insn ("ehb", NULL);
+
       output_asm_insn ("%(bnz.%v0\t%w2,1f", operands);
       output_asm_insn (s, operands);
       s = "break\t7%)\n1:";
@@ -21125,7 +21145,8 @@ mips_classify_branch_p6600 (rtx_insn *insn)
 
 static void
 mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
-		   rtx *delayed_reg, rtx lo_reg, bool *fs_delay)
+		   rtx *delayed_reg, rtx lo_reg, bool *fs_delay,
+		   rtx_insn **last_load, int *load_delay)
 {
   rtx pattern, set;
   int nops, ninsns;
@@ -21142,6 +21163,15 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
   ninsns = get_attr_length (insn) / 4;
   if (get_attr_length (insn) == 0)
     return;
+
+  if (TARGET_FIX_I6500
+      && (CALL_P (insn) || JUMP_P (insn))
+      && (*last_load != 0 && *load_delay > 0))
+   {
+     emit_insn_after (gen_mips_ehb (), *last_load);
+     *last_load = 0;
+     *load_delay = 0;
+   }
 
   /* Work out how many nops are needed.  Note that we only care about
      registers that are explicitly mentioned in the instruction's pattern.
@@ -21200,6 +21230,10 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
   *hilo_delay += ninsns;
   *delayed_reg = 0;
   *fs_delay = false;
+
+  if (*last_load && *load_delay > 0)
+    *load_delay -= ninsns;
+
   if (INSN_CODE (insn) >= 0)
     switch (get_attr_hazard (insn))
       {
@@ -21228,6 +21262,21 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
 	set = single_set (insn);
 	gcc_assert (set);
 	*delayed_reg = SET_DEST (set);
+	break;
+      }
+
+   if (TARGET_FIX_I6500 && INSN_CODE (insn) >= 0)
+     switch (get_attr_type (insn))
+      {
+      case TYPE_LOAD:
+      case TYPE_FPLOAD:
+      case TYPE_FPIDXLOAD:
+      case TYPE_SIMD_LOAD:
+	gcc_assert (!insn->deleted ());
+	*last_load = insn;
+	*load_delay = 16;
+	break;
+      default:
 	break;
       }
 }
@@ -21276,9 +21325,9 @@ mips_break_sequence (rtx_insn *insn)
 static void
 mips_reorg_process_insns (void)
 {
-  rtx_insn *insn, *last_insn, *subinsn, *next_insn;
+  rtx_insn *insn, *last_insn, *subinsn, *next_insn, *last_load;
   rtx lo_reg, delayed_reg;
-  int hilo_delay;
+  int hilo_delay, load_delay;
   bool fs_delay;
 
   /* Force all instructions to be split into their final form.  */
@@ -21345,7 +21394,9 @@ mips_reorg_process_insns (void)
 	}
 
   last_insn = 0;
+  last_load = 0;
   hilo_delay = 2;
+  load_delay = 0;
   delayed_reg = 0;
   lo_reg = gen_rtx_REG (SImode, LO_REGNUM);
   fs_delay = false;
@@ -21434,7 +21485,8 @@ mips_reorg_process_insns (void)
 			INSN_CODE (subinsn) = CODE_FOR_nop;
 		      }
 		    mips_avoid_hazard (last_insn, subinsn, &hilo_delay,
-				       &delayed_reg, lo_reg, &fs_delay);
+				       &delayed_reg, lo_reg, &fs_delay,
+				       &last_load, &load_delay);
 		  }
 	      last_insn = insn;
 	    }
@@ -21455,7 +21507,8 @@ mips_reorg_process_insns (void)
 	      else
 		{
 		  mips_avoid_hazard (last_insn, insn, &hilo_delay,
-				     &delayed_reg, lo_reg, &fs_delay);
+				     &delayed_reg, lo_reg, &fs_delay,
+				     &last_load, &load_delay);
 		  /* When a compact branch introduces a forbidden slot hazard
 		     and the next useful instruction is a SEQUENCE of a jump
 		     and a non-nop instruction in the delay slot, remove the
@@ -21948,6 +22001,10 @@ mips_set_compression_mode (unsigned int compression_mode)
   str_align_functions = mips_base_align_functions;
   target_flags &= ~(MASK_MIPS16 | MASK_MICROMIPS);
   target_flags |= compression_mode;
+
+  if (compression_mode && (TARGET_FIX_I6500 || TARGET_FIX_I6400))
+    error ("-mfix-i6500 (-mfix-i6400) not compatible with "
+	   "-mmips16 or -mmicromips");
 
   if (compression_mode & MASK_MIPS16)
     {
@@ -22620,6 +22677,10 @@ mips_option_override (void)
   if (ABI_NEEDS_64BIT_REGS && !ISA_HAS_64BIT_REGS)
     error ("%<-march=%s%> is not compatible with the selected ABI",
 	   mips_arch_info->name);
+
+  if (mips_isa_rev < 6 && (TARGET_FIX_I6500 || TARGET_FIX_I6400))
+    error ("-mfix-i6500 (-mfix-i6400) not compatible with "
+	   "pre-R6 target: %qs", mips_arch_info->name);
 
   /* Optimize for mips_arch, unless -mtune selects a different processor.  */
   if (OPTION_SET_P (mips_tune_option))
@@ -24210,7 +24271,7 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
      place the instruction that was in the delay slot before the JRC
      instruction.  */
 
-  if (TARGET_CB_ALWAYS)
+  if (TARGET_CB_ALWAYS && !TARGET_FIX_I6500)
     {
       rtx temp;
       temp = trampoline[i-2];
