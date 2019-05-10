@@ -309,4 +309,9 @@ extern rtx default_memtag_set_tag (rtx, rtx, rtx);
 extern rtx default_memtag_extract_tag (rtx, rtx);
 extern rtx default_memtag_untagged_pointer (rtx, rtx);
 
+extern void default_prune_insertions_deletions (struct edge_list *edge_list,
+						unsigned int n_elems,
+						sbitmap *pre_insert_map,
+						sbitmap *pre_delete_map);
+
 #endif /* GCC_TARGHOOKS_H */

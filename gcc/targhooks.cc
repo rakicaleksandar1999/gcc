@@ -2843,4 +2843,13 @@ default_memtag_untagged_pointer (rtx tagged_pointer, rtx target)
   return untagged_base;
 }
 
+void
+default_prune_insertions_deletions (struct edge_list *
+				    edge_list ATTRIBUTE_UNUSED,
+				    unsigned int n_elems ATTRIBUTE_UNUSED,
+				    sbitmap *pre_insert_map ATTRIBUTE_UNUSED,
+				    sbitmap *pre_delete_map ATTRIBUTE_UNUSED)
+{
+}
+
 #include "gt-targhooks.h"
