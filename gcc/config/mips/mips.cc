@@ -19245,6 +19245,30 @@ mips_expand_builtin_insn (enum insn_code icode, unsigned int nops,
     case CODE_FOR_msa_dpsub_u_w:
     case CODE_FOR_msa_dpsub_u_h:
     case CODE_FOR_msa_dpsub_u_d:
+
+    case CODE_FOR_mips_dpau_h_qbl:
+    case CODE_FOR_mips_dpau_h_qbr:
+    case CODE_FOR_mips_dpsu_h_qbl:
+    case CODE_FOR_mips_dpsu_h_qbr:
+    case CODE_FOR_mips_dpaq_s_w_ph:
+    case CODE_FOR_mips_dpsq_s_w_ph:
+    case CODE_FOR_mips_mulsaq_s_w_ph:
+    case CODE_FOR_mips_dpaq_sa_l_w:
+    case CODE_FOR_mips_dpsq_sa_l_w:
+    case CODE_FOR_mips_maq_s_w_phl:
+    case CODE_FOR_mips_maq_s_w_phr:
+    case CODE_FOR_mips_maq_sa_w_phl:
+    case CODE_FOR_mips_maq_sa_w_phr:
+
+    case CODE_FOR_mips_dpa_w_ph:
+    case CODE_FOR_mips_dps_w_ph:
+    case CODE_FOR_mips_mulsa_w_ph:
+    case CODE_FOR_mips_dpax_w_ph:
+    case CODE_FOR_mips_dpsx_w_ph:
+    case CODE_FOR_mips_dpaqx_s_w_ph:
+    case CODE_FOR_mips_dpaqx_sa_w_ph:
+    case CODE_FOR_mips_dpsqx_s_w_ph:
+    case CODE_FOR_mips_dpsqx_sa_w_ph:
       /* Force the operands which correspond to the same in-out register
 	  to have the same pseudo assigned to them.  If the input operand
 	  is not REG, create one for it.  */
