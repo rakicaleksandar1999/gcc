@@ -1,0 +1,16 @@
+/* { dg-do compile } */
+/* { dg-options "-mabi=64 -march=mips64r6" } */
+/* { dg-additional-options "--param max-rtl-if-conversion-insns=1" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } } */
+
+NOMIPS16 unsigned int
+foo (unsigned int x, unsigned int y)
+{
+  if (x == 1)
+    y ^= 0xabcd;
+
+  return y;
+}
+
+/* { dg-final { scan-assembler-times "seleqz" 1 } } */
+/* { dg-final { scan-assembler-not "selnez" } } */
