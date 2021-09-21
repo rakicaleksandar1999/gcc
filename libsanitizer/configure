@@ -661,6 +661,7 @@ link_libubsan
 link_libtsan
 link_libhwasan
 link_libasan
+link_libsan_rpath
 HWASAN_SUPPORTED_FALSE
 HWASAN_SUPPORTED_TRUE
 LSAN_SUPPORTED_FALSE
@@ -12475,7 +12476,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 12478 "configure"
+#line 12479 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -12581,7 +12582,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 12584 "configure"
+#line 12585 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -16129,6 +16130,15 @@ fi
 $as_echo "$ac_cv_lib_dl_dlsym" >&6; }
 if test "x$ac_cv_lib_dl_dlsym" = xyes; then :
   link_sanitizer_common="-ldl $link_sanitizer_common"
+fi
+
+
+lt_multi_os_dir=`$CC $CPPFLAGS $CFLAGS $LDFLAGS \
+		 -print-multi-os-directory 2>/dev/null`
+if test -n "$with_cross_host" &&
+       test x"$with_cross_host" != x"no"; then
+    link_libsan_rpath="-rpath-link=%R/../../${target_alias}/lib/"
+    link_libsan_rpath="${link_libsan_rpath}$lt_multi_os_dir"
 fi
 
 

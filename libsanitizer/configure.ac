@@ -120,6 +120,15 @@ AC_CHECK_LIB(rt, shm_open,
 AC_CHECK_LIB(dl, dlsym,
   [link_sanitizer_common="-ldl $link_sanitizer_common"])
 
+lt_multi_os_dir=`$CC $CPPFLAGS $CFLAGS $LDFLAGS \
+		 -print-multi-os-directory 2>/dev/null`
+if test -n "$with_cross_host" &&
+       test x"$with_cross_host" != x"no"; then
+    link_libsan_rpath="-rpath-link=%R/../../${target_alias}/lib/"
+    link_libsan_rpath="${link_libsan_rpath}$lt_multi_os_dir"
+fi
+AC_SUBST(link_libsan_rpath)
+
 # Set up the set of additional libraries that we need to link against for libasan.
 link_libasan=$link_sanitizer_common
 AC_SUBST(link_libasan)
