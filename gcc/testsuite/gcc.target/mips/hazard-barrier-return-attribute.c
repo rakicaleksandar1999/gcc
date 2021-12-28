@@ -17,4 +17,4 @@ foo1 ()
 }
 
 /* { dg-final { scan-assembler "foo0:" } } */
-/* { dg-final { scan-assembler-times "\tjr.hb\t\\\$31\n\tnop\\n" 1 } } */
+/* { dg-final { scan-assembler "(\tjr.hb\t\\\$31\n\tnop\\n|\tjrc.hb\t)" } } */
