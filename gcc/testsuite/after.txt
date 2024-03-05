@@ -1,0 +1,2792 @@
+tree_ssa_iv_optimize
+;;
+;; Loop 1
+;;  header 3, latch 6
+;;  depth 1, outer 0, finite_p
+;;  niter (unsigned int) n_12(D) + 4294967295
+;;  upper_bound 2147483646
+;;  likely_upper_bound 2147483646
+;;  iterations by profile: 8.090909 (unreliable, maybe flat) entry count:105119324 (estimated locally, freq 0.8900)
+;;  nodes: 3 6
+Processing loop 1 at fp_foo.c:3
+  single exit 3 -> 7, exit condition if (n_12(D) > i_17)
+
+
+
+Loops in function: daxpy
+loop_0 (header = 0, latch = 1)
+{
+  bb_2 (preds = {bb_0 }, succs = {bb_5 bb_4 })
+  {
+    <bb 2> [local count: 118111600]:
+    if (n_12(D) > 0)
+      goto <bb 5>; [89.00%]
+    else
+      goto <bb 4>; [11.00%]
+
+  }
+  bb_5 (preds = {bb_2 }, succs = {bb_3 })
+  {
+    <bb 5> [local count: 105119324]:
+
+  }
+  bb_7 (preds = {bb_3 }, succs = {bb_4 })
+  {
+    <bb 7> [local count: 105119324]:
+    # .MEM_22 = PHI <.MEM_16(3)>
+
+  }
+  bb_4 (preds = {bb_2 bb_7 }, succs = {bb_1 })
+  {
+    <bb 4> [local count: 118111600]:
+    # .MEM_29 = PHI <.MEM_11(D)(2), .MEM_22(7)>
+    # VUSE <.MEM_29>
+    return;
+
+  }
+  loop_1 (header = 3, latch = 6, finite_p
+  niter (unsigned int) n_12(D) + 4294967295
+  upper_bound 2147483646
+  likely_upper_bound 2147483646
+  iterations by profile: 8.090909 (unreliable, maybe flat) entry count:105119324 (estimated locally, freq 0.8900))
+  {
+    bb_3 (preds = {bb_6 bb_5 }, succs = {bb_6 bb_7 })
+    {
+      <bb 3> [local count: 955630224]:
+      # i_20 = PHI <i_17(6), 0(5)>
+      # .MEM_21 = PHI <.MEM_16(6), .MEM_11(D)(5)>
+      _1 = (long unsigned int) i_20;
+      _2 = _1 * 4;
+      _3 = vector1_13(D) + _2;
+      # VUSE <.MEM_21>
+      _4 = *_3;
+      _5 = vector2_14(D) + _2;
+      # VUSE <.MEM_21>
+      _6 = *_5;
+      _7 = _6 * fp_const_15(D);
+      _8 = _4 + _7;
+      # .MEM_16 = VDEF <.MEM_21>
+      *_3 = _8;
+      i_17 = i_20 + 1;
+      if (n_12(D) > i_17)
+        goto <bb 6>; [89.00%]
+      else
+        goto <bb 7>; [11.00%]
+
+    }
+    bb_6 (preds = {bb_3 }, succs = {bb_3 })
+    {
+      <bb 6> [local count: 850510900]:
+      goto <bb 3>; [100.00%]
+
+    }
+  }
+}
+Analyzing # of iterations of loop 1
+  exit condition [1, + , 1](no_overflow) < n_12(D)
+  bounds on difference of bases: 0 ... 2147483646
+  result:
+    # of iterations (unsigned int) n_12(D) + 4294967295, bounded by 2147483646
+  number of iterations (unsigned int) n_12(D) + 4294967295
+
+<Induction Vars>:
+IV struct:
+  SSA_NAME:	_1
+  Type:	long unsigned int
+  Base:	0
+  Step:	1
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_2
+  Type:	long unsigned int
+  Base:	0
+  Step:	4
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_3
+  Type:	float *
+  Base:	vector1_13(D)
+  Step:	4
+  Object:	(void *) vector1_13(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_5
+  Type:	float *
+  Base:	vector2_14(D)
+  Step:	4
+  Object:	(void *) vector2_14(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	i_17
+  Type:	int
+  Base:	1
+  Step:	1
+  Biv:	Y
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	i_20
+  Type:	int
+  Base:	0
+  Step:	1
+  Biv:	Y
+  Overflowness wrto loop niter:	No-overflow
+
+<IV Groups>:
+Group 0:
+  Type:	REFERENCE ADDRESS
+  Use 0.0:
+    At stmt:	_4 = *_3;
+    At pos:	*_3
+    IV struct:
+      Type:	float *
+      Base:	vector1_13(D)
+      Step:	4
+      Object:	(void *) vector1_13(D)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+  Use 0.1:
+    At stmt:	*_3 = _8;
+    At pos:	*_3
+    IV struct:
+      Type:	float *
+      Base:	vector1_13(D)
+      Step:	4
+      Object:	(void *) vector1_13(D)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+Group 1:
+  Type:	REFERENCE ADDRESS
+  Use 1.0:
+    At stmt:	_6 = *_5;
+    At pos:	*_5
+    IV struct:
+      Type:	float *
+      Base:	vector2_14(D)
+      Step:	4
+      Object:	(void *) vector2_14(D)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+Group 2:
+  Type:	COMPARE
+  Use 2.0:
+    At stmt:	if (n_12(D) > i_17)
+    At pos:	i_17
+    IV struct:
+      Type:	int
+      Base:	1
+      Step:	1
+      Biv:	Y
+      Overflowness wrto loop niter:	No-overflow
+
+Predict doloop failure due to target specific checks.
+Candidate 0:
+  Var befor: ivtmp.6
+  Var after: ivtmp.6
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 1:
+  Var befor: ivtmp.7
+  Var after: ivtmp.7
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 2:
+  Var befor: ivtmp.8
+  Var after: ivtmp.8
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	1
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 3:
+  Incr POS: orig biv
+  IV struct:
+    Type:	int
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 4:
+  Var befor: ivtmp.9
+  Var after: ivtmp.9
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) vector1_13(D)
+    Step:	4
+    Object:	(void *) vector1_13(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 5:
+  Var befor: ivtmp.10
+  Var after: ivtmp.10
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) vector2_14(D)
+    Step:	4
+    Object:	(void *) vector2_14(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 6:
+  Var befor: ivtmp.11
+  Var after: ivtmp.11
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	1
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 7:
+  Var befor: ivtmp.12
+  Var after: ivtmp.12
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	0
+    Step:	4
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+
+<Important Candidates>:	 0, 1, 2, 3,
+
+<Group, Cand> Related:
+  Group 0:	0, 1, 2, 3, 4, 7
+  Group 1:	0, 1, 2, 3, 5, 7
+  Group 2:	0, 1, 2, 3, 6
+
+<Candidate Costs>:
+  cand	cost
+force_expr_to_var_cost size costs:
+  integer 0
+  symbol 5
+  address 5
+  other 24
+
+force_expr_to_var_cost speed costs:
+  integer 0
+  symbol 5
+  address 5
+  other 24
+
+  0	5
+  1	5
+  2	5
+  3	4
+  4	5
+  5	5
+  6	5
+  7	5
+
+
+<Invariant Vars>:
+Inv 4:	n_12(D)	(eliminable)
+Inv 1:	vector1_13(D)	(eliminable)
+Inv 2:	vector2_14(D)	(eliminable)
+Inv 3:	fp_const_15(D)	(eliminable)
+
+<Invariant Expressions>:
+inv_expr 1: 	(unsigned long) n_12(D) * 4 + (unsigned long) vector1_13(D)
+inv_expr 2: 	(unsigned long) n_12(D) * 4 + (unsigned long) vector2_14(D)
+
+<Group-candidate Costs>:
+Group 0:
+  cand	cost	compl.	inv.expr.	inv.vars
+  1	18	2	NIL;	1
+  2	18	4	NIL;	1
+  4	2	0	NIL;	NIL;
+  7	10	2	NIL;	1
+
+Group 1:
+  cand	cost	compl.	inv.expr.	inv.vars
+  1	9	1	NIL;	2
+  2	9	2	NIL;	2
+  5	1	0	NIL;	NIL;
+  7	5	1	NIL;	2
+
+Group 2:
+  cand	cost	compl.	inv.expr.	inv.vars
+  0	0	0	NIL;	4
+  1	0	0	NIL;	4
+  2	1	0	NIL;	4
+  3	0	0	NIL;	4
+  4	1	0	1;	NIL;
+  5	1	0	2;	NIL;
+  6	0	0	NIL;	4
+  7	1	0	NIL;	4
+
+
+<Global Costs>:
+  target_avail_regs 26
+  target_clobbered_regs 16
+  target_reg_cost 4
+  target_spill_cost 24
+  regs_used 0
+  cost for size:
+  ivs	cost
+  0	0
+  1	2
+  2	4
+  3	6
+  4	8
+  5	10
+  6	12
+  7	14
+  8	16
+  9	18
+  10	20
+  11	22
+  12	24
+  13	26
+  14	28
+  15	30
+  16	32
+  17	34
+  18	36
+  19	38
+  20	40
+  21	42
+  22	44
+  23	115
+  24	120
+  25	125
+  26	130
+  27	179
+  28	228
+  29	277
+  30	326
+  31	375
+  32	424
+  33	473
+  34	522
+  35	571
+  36	620
+  37	669
+  38	718
+  39	767
+  40	816
+  41	865
+  42	914
+  43	963
+  44	1012
+  45	1061
+  46	1110
+  47	1159
+  48	1208
+  49	1257
+  50	1306
+  51	1355
+  52	1404
+
+Initial set of candidates:
+  cost: 37 (complexity 3)
+  reg_cost: 5
+  cand_cost: 5
+  cand_group_cost: 27 (complexity 3)
+  candidates: 1
+   group:0 --> iv_cand:1, cost=(18,2)
+   group:1 --> iv_cand:1, cost=(9,1)
+   group:2 --> iv_cand:1, cost=(0,0)
+  invariant variables: 1, 2, 4
+  invariant expressions: 
+
+Improved to:
+  cost: 26 (complexity 3)
+  reg_cost: 5
+  cand_cost: 5
+  cand_group_cost: 16 (complexity 3)
+  candidates: 7
+   group:0 --> iv_cand:7, cost=(10,2)
+   group:1 --> iv_cand:7, cost=(5,1)
+   group:2 --> iv_cand:7, cost=(1,0)
+  invariant variables: 1, 2, 4
+  invariant expressions: 
+
+Improved to:
+  cost: 24 (complexity 1)
+  reg_cost: 6
+  cand_cost: 10
+  cand_group_cost: 8 (complexity 1)
+  candidates: 4, 7
+   group:0 --> iv_cand:4, cost=(2,0)
+   group:1 --> iv_cand:7, cost=(5,1)
+   group:2 --> iv_cand:7, cost=(1,0)
+  invariant variables: 2, 4
+  invariant expressions: 
+
+Improved to:
+  cost: 19 (complexity 0)
+  reg_cost: 5
+  cand_cost: 10
+  cand_group_cost: 4 (complexity 0)
+  candidates: 4, 5
+   group:0 --> iv_cand:4, cost=(2,0)
+   group:1 --> iv_cand:5, cost=(1,0)
+   group:2 --> iv_cand:4, cost=(1,0)
+  invariant variables: 
+  invariant expressions: 1
+
+Initial set of candidates:
+  cost: 26 (complexity 3)
+  reg_cost: 5
+  cand_cost: 5
+  cand_group_cost: 16 (complexity 3)
+  candidates: 7
+   group:0 --> iv_cand:7, cost=(10,2)
+   group:1 --> iv_cand:7, cost=(5,1)
+   group:2 --> iv_cand:7, cost=(1,0)
+  invariant variables: 1, 2, 4
+  invariant expressions: 
+
+Improved to:
+  cost: 24 (complexity 1)
+  reg_cost: 6
+  cand_cost: 10
+  cand_group_cost: 8 (complexity 1)
+  candidates: 4, 7
+   group:0 --> iv_cand:4, cost=(2,0)
+   group:1 --> iv_cand:7, cost=(5,1)
+   group:2 --> iv_cand:7, cost=(1,0)
+  invariant variables: 2, 4
+  invariant expressions: 
+
+Improved to:
+  cost: 19 (complexity 0)
+  reg_cost: 5
+  cand_cost: 10
+  cand_group_cost: 4 (complexity 0)
+  candidates: 4, 5
+   group:0 --> iv_cand:4, cost=(2,0)
+   group:1 --> iv_cand:5, cost=(1,0)
+   group:2 --> iv_cand:4, cost=(1,0)
+  invariant variables: 
+  invariant expressions: 1
+
+Original cost 19 (complexity 0)
+
+Final cost 19 (complexity 0)
+
+Selected IV set for loop 1 at fp_foo.c:3, 10 avg niters, 2 IVs:
+Candidate 4:
+  Var befor: ivtmp.9_28
+  Var after: ivtmp.9_27
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) vector1_13(D)
+    Step:	4
+    Object:	(void *) vector1_13(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 5:
+  Var befor: ivtmp.10_25
+  Var after: ivtmp.10_24
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) vector2_14(D)
+    Step:	4
+    Object:	(void *) vector2_14(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+
+Replacing exit test: if (n_12(D) > i_17)
+tree_ssa_iv_optimize
+;;
+;; Loop 3
+;;  header 8, latch 13
+;;  depth 3, outer 2, finite_p
+;;  niter _87 > 0 ? (unsigned int) _87 + 4294967295 : 0
+;;  upper_bound 2147483645
+;;  likely_upper_bound 2147483645
+;;  iterations by profile: 7.090909 (unreliable, maybe flat) entry count:118111600 (estimated locally, freq 65.4628)
+;;  nodes: 8 13
+Processing loop 3 at fp_foo.c:3
+  single exit 8 -> 9, exit condition if (i_40 < _87)
+
+
+
+Loops in function: dgefa
+loop_0 (header = 0, latch = 1)
+{
+  bb_2 (preds = {bb_0 }, succs = {bb_10 bb_14 })
+  {
+    <bb 2> [local count: 1804255]:
+    _45 = n_23(D) + -1;
+    if (n_23(D) > 1)
+      goto <bb 10>; [89.00%]
+    else
+      goto <bb 14>; [11.00%]
+
+  }
+  bb_14 (preds = {bb_2 }, succs = {bb_3 })
+  {
+    <bb 14> [local count: 198468]:
+
+  }
+  bb_3 (preds = {bb_14 bb_16 }, succs = {bb_1 })
+  {
+    <bb 3> [local count: 1804255]:
+    # .MEM_88 = PHI <.MEM_22(D)(14), .MEM_53(16)>
+    # VUSE <.MEM_88>
+    return;
+
+  }
+  bb_10 (preds = {bb_2 }, succs = {bb_4 })
+  {
+    <bb 10> [local count: 1605787]:
+
+  }
+  bb_16 (preds = {bb_5 }, succs = {bb_3 })
+  {
+    <bb 16> [local count: 1605787]:
+    # .MEM_53 = PHI <.MEM_89(5)>
+    goto <bb 3>; [100.00%]
+
+  }
+  loop_1 (header = 4, latch = 11, finite_p
+  niter (unsigned int) n_23(D) + 4294967294
+  upper_bound 2147483645
+  likely_upper_bound 2147483645
+  iterations by profile: 8.090909 (unreliable, maybe flat) entry count:1605787 (estimated locally, freq 0.8900))
+  {
+    bb_4 (preds = {bb_11 bb_10 }, succs = {bb_6 bb_15 })
+    {
+      <bb 4> [local count: 14598063]:
+      # i_50 = PHI <j_24(11), 0(10)>
+      # .MEM_54 = PHI <.MEM_89(11), .MEM_22(D)(10)>
+      j_24 = i_50 + 1;
+      if (n_23(D) > j_24)
+        goto <bb 6>; [89.00%]
+      else
+        goto <bb 15>; [11.00%]
+
+    }
+    bb_15 (preds = {bb_4 }, succs = {bb_5 })
+    {
+      <bb 15> [local count: 1605787]:
+
+    }
+    bb_5 (preds = {bb_15 bb_17 }, succs = {bb_11 bb_16 })
+    {
+      <bb 5> [local count: 14598063]:
+      # .MEM_89 = PHI <.MEM_54(15), .MEM_86(17)>
+      if (j_24 < _45)
+        goto <bb 11>; [89.00%]
+      else
+        goto <bb 16>; [11.00%]
+
+    }
+    bb_11 (preds = {bb_5 }, succs = {bb_4 })
+    {
+      <bb 11> [local count: 12992276]:
+      goto <bb 4>; [100.00%]
+
+    }
+    bb_6 (preds = {bb_4 }, succs = {bb_7 })
+    {
+      <bb 6> [local count: 12992276]:
+      _6 = m_25(D) * i_50;
+      _7 = _6 + i_50;
+      _8 = (sizetype) _7;
+      _9 = _8 + 1;
+      _10 = _9 * 4;
+      _87 = n_23(D) - j_24;
+
+    }
+    bb_17 (preds = {bb_9 }, succs = {bb_5 })
+    {
+      <bb 17> [local count: 12992276]:
+      # .MEM_86 = PHI <.MEM_55(9)>
+      goto <bb 5>; [100.00%]
+
+    }
+    loop_2 (header = 7, latch = 12, finite_p
+    niter ((unsigned int) n_23(D) - (unsigned int) i_50) - 2
+    upper_bound 2147483645
+    likely_upper_bound 2147483645
+    iterations by profile: 8.090909 (unreliable, maybe flat) entry count:12992276 (estimated locally, freq 7.2009))
+    {
+      bb_7 (preds = {bb_12 bb_6 }, succs = {bb_8 })
+      {
+        <bb 7> [local count: 118111600]:
+        # j_51 = PHI <j_30(12), j_24(6)>
+        # .MEM_52 = PHI <.MEM_55(12), .MEM_54(6)>
+        _1 = m_25(D) * j_51;
+        _2 = _1 + l_26(D);
+        _3 = (long unsigned int) _2;
+        _4 = _3 * 4;
+        _5 = vector_27(D) + _4;
+        # VUSE <.MEM_52>
+        t_28 = *_5;
+        _11 = _1 + i_50;
+        _12 = (sizetype) _11;
+        _13 = _12 + 1;
+        _14 = _13 * 4;
+
+      }
+      bb_9 (preds = {bb_8 }, succs = {bb_12 bb_17 })
+      {
+        <bb 9> [local count: 118111600]:
+        # .MEM_55 = PHI <.MEM_42(8)>
+        j_30 = j_51 + 1;
+        if (n_23(D) > j_30)
+          goto <bb 12>; [89.00%]
+        else
+          goto <bb 17>; [11.00%]
+
+      }
+      bb_12 (preds = {bb_9 }, succs = {bb_7 })
+      {
+        <bb 12> [local count: 105119324]:
+        goto <bb 7>; [100.00%]
+
+      }
+      loop_3 (header = 8, latch = 13, finite_p
+      niter _87 > 0 ? (unsigned int) _87 + 4294967295 : 0
+      upper_bound 2147483645
+      likely_upper_bound 2147483645
+      iterations by profile: 7.090909 (unreliable, maybe flat) entry count:118111600 (estimated locally, freq 65.4628))
+      {
+        bb_8 (preds = {bb_13 bb_7 }, succs = {bb_13 bb_9 })
+        {
+          <bb 8> [local count: 955630225]:
+          # i_56 = PHI <i_40(13), 0(7)>
+          # .MEM_57 = PHI <.MEM_42(13), .MEM_52(7)>
+          _32 = (long unsigned int) i_56;
+          _33 = _32 * 4;
+          _21 = _10 + _33;
+          _34 = vector_27(D) + _21;
+          # VUSE <.MEM_57>
+          _35 = *_34;
+          _29 = _14 + _33;
+          _36 = vector_27(D) + _29;
+          # VUSE <.MEM_57>
+          _37 = *_36;
+          _38 = t_28 * _37;
+          _39 = _35 + _38;
+          # .MEM_42 = VDEF <.MEM_57>
+          *_34 = _39;
+          i_40 = i_56 + 1;
+          if (i_40 < _87)
+            goto <bb 13>; [89.00%]
+          else
+            goto <bb 9>; [11.00%]
+
+        }
+        bb_13 (preds = {bb_8 }, succs = {bb_8 })
+        {
+          <bb 13> [local count: 850510901]:
+          goto <bb 8>; [100.00%]
+
+        }
+      }
+    }
+  }
+}
+Analyzing # of iterations of loop 3
+  exit condition [1, + , 1](no_overflow) < _87
+  bounds on difference of bases: -2147483649 ... 2147483646
+  result:
+    zero if _87 <= 0
+    # of iterations (unsigned int) _87 + 4294967295, bounded by 2147483646
+  number of iterations (unsigned int) _87 + 4294967295; zero if _87 <= 0
+
+<Induction Vars>:
+IV struct:
+  SSA_NAME:	_21
+  Type:	sizetype
+  Base:	((sizetype) _7 + 1) * 4
+  Step:	4
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_29
+  Type:	sizetype
+  Base:	((sizetype) _11 + 1) * 4
+  Step:	4
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_32
+  Type:	long unsigned int
+  Base:	0
+  Step:	1
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_33
+  Type:	long unsigned int
+  Base:	0
+  Step:	4
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_34
+  Type:	float *
+  Base:	vector_27(D) + ((sizetype) _7 + 1) * 4
+  Step:	4
+  Object:	(void *) vector_27(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_36
+  Type:	float *
+  Base:	vector_27(D) + ((sizetype) _11 + 1) * 4
+  Step:	4
+  Object:	(void *) vector_27(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	i_40
+  Type:	int
+  Base:	1
+  Step:	1
+  Biv:	Y
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	i_56
+  Type:	int
+  Base:	0
+  Step:	1
+  Biv:	Y
+  Overflowness wrto loop niter:	No-overflow
+
+<IV Groups>:
+Group 0:
+  Type:	REFERENCE ADDRESS
+  Use 0.0:
+    At stmt:	_35 = *_34;
+    At pos:	*_34
+    IV struct:
+      Type:	float *
+      Base:	vector_27(D) + ((sizetype) _7 + 1) * 4
+      Step:	4
+      Object:	(void *) vector_27(D)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+  Use 0.1:
+    At stmt:	*_34 = _39;
+    At pos:	*_34
+    IV struct:
+      Type:	float *
+      Base:	vector_27(D) + ((sizetype) _7 + 1) * 4
+      Step:	4
+      Object:	(void *) vector_27(D)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+Group 1:
+  Type:	REFERENCE ADDRESS
+  Use 1.0:
+    At stmt:	_37 = *_36;
+    At pos:	*_36
+    IV struct:
+      Type:	float *
+      Base:	vector_27(D) + ((sizetype) _11 + 1) * 4
+      Step:	4
+      Object:	(void *) vector_27(D)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+Group 2:
+  Type:	COMPARE
+  Use 2.0:
+    At stmt:	if (i_40 < _87)
+    At pos:	i_40
+    IV struct:
+      Type:	int
+      Base:	1
+      Step:	1
+      Biv:	Y
+      Overflowness wrto loop niter:	No-overflow
+
+Predict doloop failure due to target specific checks.
+Candidate 0:
+  Var befor: ivtmp.20
+  Var after: ivtmp.20
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 1:
+  Var befor: ivtmp.21
+  Var after: ivtmp.21
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 2:
+  Var befor: ivtmp.22
+  Var after: ivtmp.22
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	1
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 3:
+  Incr POS: orig biv
+  IV struct:
+    Type:	int
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 4:
+  Var befor: ivtmp.23
+  Var after: ivtmp.23
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) (vector_27(D) + ((sizetype) _7 + 1) * 4)
+    Step:	4
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 5:
+  Var befor: ivtmp.24
+  Var after: ivtmp.24
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) ((sizetype) _7 * 4) + (unsigned long) vector_27(D)
+    Step:	4
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 6:
+  Var befor: ivtmp.25
+  Var after: ivtmp.25
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) (vector_27(D) + ((sizetype) _11 + 1) * 4)
+    Step:	4
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 7:
+  Var befor: ivtmp.26
+  Var after: ivtmp.26
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) ((sizetype) _11 * 4) + (unsigned long) vector_27(D)
+    Step:	4
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 8:
+  Var befor: ivtmp.27
+  Var after: ivtmp.27
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	1
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 9:
+  Var befor: ivtmp.28
+  Var after: ivtmp.28
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	0
+    Step:	4
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+
+<Important Candidates>:	 0, 1, 2, 3,
+
+<Group, Cand> Related:
+  Group 0:	0, 1, 2, 3, 4, 5, 9
+  Group 1:	0, 1, 2, 3, 6, 7, 9
+  Group 2:	0, 1, 2, 3, 8
+
+<Candidate Costs>:
+  cand	cost
+  0	5
+  1	5
+  2	5
+  3	4
+  4	6
+  5	6
+  6	6
+  7	6
+  8	5
+  9	5
+
+
+<Invariant Vars>:
+Inv 6:	_7	(eliminable)
+Inv 1:	_10	(eliminable)
+Inv 7:	_11	(eliminable)
+Inv 3:	_14	(eliminable)
+Inv 2:	vector_27(D)	(eliminable)
+Inv 4:	t_28	(eliminable)
+Inv 5:	_87	(eliminable)
+
+<Invariant Expressions>:
+inv_expr 1: 	(unsigned long) _7 * 4 + (unsigned long) vector_27(D)
+inv_expr 2: 	((unsigned long) _7 - (unsigned long) _11) * 4
+inv_expr 3: 	(unsigned long) _11 * 18446744073709551612 + (unsigned long) _7 * 4
+inv_expr 4: 	(unsigned long) _11 * 4 + (unsigned long) vector_27(D)
+inv_expr 5: 	((unsigned long) _11 - (unsigned long) _7) * 4
+inv_expr 6: 	(unsigned long) _7 * 18446744073709551612 + (unsigned long) _11 * 4
+
+<Group-candidate Costs>:
+Group 0:
+  cand	cost	compl.	inv.expr.	inv.vars
+  1	22	4	1;	NIL;
+  2	22	2	1;	NIL;
+  4	2	0	NIL;	NIL;
+  5	2	2	NIL;	NIL;
+  6	16	2	2;	NIL;
+  7	16	4	3;	NIL;
+  9	14	4	1;	NIL;
+
+Group 1:
+  cand	cost	compl.	inv.expr.	inv.vars
+  1	11	2	4;	NIL;
+  2	11	1	4;	NIL;
+  4	8	1	5;	NIL;
+  5	8	2	6;	NIL;
+  6	1	0	NIL;	NIL;
+  7	1	1	NIL;	NIL;
+  9	7	2	4;	NIL;
+
+Group 2:
+  cand	cost	compl.	inv.expr.	inv.vars
+  0	0	0	NIL;	5
+  1	0	0	NIL;	5
+  2	4	0	NIL;	5
+  3	0	0	NIL;	5
+  8	4	0	NIL;	5
+
+
+<Global Costs>:
+  target_avail_regs 26
+  target_clobbered_regs 16
+  target_reg_cost 4
+  target_spill_cost 24
+  regs_used 0
+  cost for size:
+  ivs	cost
+  0	0
+  1	2
+  2	4
+  3	6
+  4	8
+  5	10
+  6	12
+  7	14
+  8	16
+  9	18
+  10	20
+  11	22
+  12	24
+  13	26
+  14	28
+  15	30
+  16	32
+  17	34
+  18	36
+  19	38
+  20	40
+  21	42
+  22	44
+  23	115
+  24	120
+  25	125
+  26	130
+  27	179
+  28	228
+  29	277
+  30	326
+  31	375
+  32	424
+  33	473
+  34	522
+  35	571
+  36	620
+  37	669
+  38	718
+  39	767
+  40	816
+  41	865
+  42	914
+  43	963
+  44	1012
+  45	1061
+  46	1110
+  47	1159
+  48	1208
+  49	1257
+  50	1306
+  51	1355
+  52	1404
+
+Initial set of candidates:
+  cost: 47 (complexity 3)
+  reg_cost: 5
+  cand_cost: 5
+  cand_group_cost: 37 (complexity 3)
+  candidates: 2
+   group:0 --> iv_cand:2, cost=(22,2)
+   group:1 --> iv_cand:2, cost=(11,1)
+   group:2 --> iv_cand:2, cost=(4,0)
+  invariant variables: 5
+  invariant expressions: 1, 4
+
+Improved to:
+  cost: 31 (complexity 1)
+  reg_cost: 6
+  cand_cost: 11
+  cand_group_cost: 14 (complexity 1)
+  candidates: 2, 4
+   group:0 --> iv_cand:4, cost=(2,0)
+   group:1 --> iv_cand:4, cost=(8,1)
+   group:2 --> iv_cand:2, cost=(4,0)
+  invariant variables: 5
+  invariant expressions: 5
+
+Improved to:
+  cost: 26 (complexity 1)
+  reg_cost: 6
+  cand_cost: 10
+  cand_group_cost: 10 (complexity 1)
+  candidates: 3, 4
+   group:0 --> iv_cand:4, cost=(2,0)
+   group:1 --> iv_cand:4, cost=(8,1)
+   group:2 --> iv_cand:3, cost=(0,0)
+  invariant variables: 5
+  invariant expressions: 5
+
+Improved to:
+  cost: 26 (complexity 0)
+  reg_cost: 7
+  cand_cost: 16
+  cand_group_cost: 3 (complexity 0)
+  candidates: 3, 4, 6
+   group:0 --> iv_cand:4, cost=(2,0)
+   group:1 --> iv_cand:6, cost=(1,0)
+   group:2 --> iv_cand:3, cost=(0,0)
+  invariant variables: 5
+  invariant expressions: 
+
+Initial set of candidates:
+  cost: 37 (complexity 6)
+  reg_cost: 7
+  cand_cost: 9
+  cand_group_cost: 21 (complexity 6)
+  candidates: 3, 9
+   group:0 --> iv_cand:9, cost=(14,4)
+   group:1 --> iv_cand:9, cost=(7,2)
+   group:2 --> iv_cand:3, cost=(0,0)
+  invariant variables: 5
+  invariant expressions: 1, 4
+
+Improved to:
+  cost: 26 (complexity 1)
+  reg_cost: 6
+  cand_cost: 10
+  cand_group_cost: 10 (complexity 1)
+  candidates: 3, 4
+   group:0 --> iv_cand:4, cost=(2,0)
+   group:1 --> iv_cand:4, cost=(8,1)
+   group:2 --> iv_cand:3, cost=(0,0)
+  invariant variables: 5
+  invariant expressions: 5
+
+Improved to:
+  cost: 26 (complexity 0)
+  reg_cost: 7
+  cand_cost: 16
+  cand_group_cost: 3 (complexity 0)
+  candidates: 3, 4, 6
+   group:0 --> iv_cand:4, cost=(2,0)
+   group:1 --> iv_cand:6, cost=(1,0)
+   group:2 --> iv_cand:3, cost=(0,0)
+  invariant variables: 5
+  invariant expressions: 
+
+Original cost 26 (complexity 0)
+
+Final cost 26 (complexity 0)
+
+Selected IV set for loop 3 at fp_foo.c:3, 10 avg niters, 3 IVs:
+Candidate 3:
+  Var befor: i_56
+  Var after: i_40
+  Incr POS: orig biv
+  IV struct:
+    Type:	int
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 4:
+  Var befor: ivtmp.23_85
+  Var after: ivtmp.23_84
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) (vector_27(D) + ((sizetype) _7 + 1) * 4)
+    Step:	4
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 6:
+  Var befor: ivtmp.25_78
+  Var after: ivtmp.25_77
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) (vector_27(D) + ((sizetype) _11 + 1) * 4)
+    Step:	4
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+
+;;
+;; Loop 2
+;;  header 7, latch 12
+;;  depth 2, outer 1, finite_p
+;;  niter ((unsigned int) n_23(D) - (unsigned int) i_50) - 2
+;;  upper_bound 2147483645
+;;  likely_upper_bound 2147483645
+;;  iterations by profile: 8.090909 (unreliable, maybe flat) entry count:12992276 (estimated locally, freq 7.2009)
+;;  nodes: 7 12 9 8 13
+Processing loop 2 at fp_foo.c:9
+  single exit 9 -> 17, exit condition if (n_23(D) > j_30)
+
+
+
+Loops in function: dgefa
+loop_0 (header = 0, latch = 1)
+{
+  bb_2 (preds = {bb_0 }, succs = {bb_10 bb_14 })
+  {
+    <bb 2> [local count: 1804255]:
+    _45 = n_23(D) + -1;
+    if (n_23(D) > 1)
+      goto <bb 10>; [89.00%]
+    else
+      goto <bb 14>; [11.00%]
+
+  }
+  bb_14 (preds = {bb_2 }, succs = {bb_3 })
+  {
+    <bb 14> [local count: 198468]:
+
+  }
+  bb_3 (preds = {bb_14 bb_16 }, succs = {bb_1 })
+  {
+    <bb 3> [local count: 1804255]:
+    # .MEM_88 = PHI <.MEM_22(D)(14), .MEM_53(16)>
+    # VUSE <.MEM_88>
+    return;
+
+  }
+  bb_10 (preds = {bb_2 }, succs = {bb_4 })
+  {
+    <bb 10> [local count: 1605787]:
+
+  }
+  bb_16 (preds = {bb_5 }, succs = {bb_3 })
+  {
+    <bb 16> [local count: 1605787]:
+    # .MEM_53 = PHI <.MEM_89(5)>
+    goto <bb 3>; [100.00%]
+
+  }
+  loop_1 (header = 4, latch = 11, finite_p
+  niter (unsigned int) n_23(D) + 4294967294
+  upper_bound 2147483645
+  likely_upper_bound 2147483645
+  iterations by profile: 8.090909 (unreliable, maybe flat) entry count:1605787 (estimated locally, freq 0.8900))
+  {
+    bb_4 (preds = {bb_11 bb_10 }, succs = {bb_6 bb_15 })
+    {
+      <bb 4> [local count: 14598063]:
+      # i_50 = PHI <j_24(11), 0(10)>
+      # .MEM_54 = PHI <.MEM_89(11), .MEM_22(D)(10)>
+      j_24 = i_50 + 1;
+      if (n_23(D) > j_24)
+        goto <bb 6>; [89.00%]
+      else
+        goto <bb 15>; [11.00%]
+
+    }
+    bb_15 (preds = {bb_4 }, succs = {bb_5 })
+    {
+      <bb 15> [local count: 1605787]:
+
+    }
+    bb_5 (preds = {bb_15 bb_17 }, succs = {bb_11 bb_16 })
+    {
+      <bb 5> [local count: 14598063]:
+      # .MEM_89 = PHI <.MEM_54(15), .MEM_86(17)>
+      if (j_24 < _45)
+        goto <bb 11>; [89.00%]
+      else
+        goto <bb 16>; [11.00%]
+
+    }
+    bb_11 (preds = {bb_5 }, succs = {bb_4 })
+    {
+      <bb 11> [local count: 12992276]:
+      goto <bb 4>; [100.00%]
+
+    }
+    bb_6 (preds = {bb_4 }, succs = {bb_7 })
+    {
+      <bb 6> [local count: 12992276]:
+      _6 = m_25(D) * i_50;
+      _7 = _6 + i_50;
+      _8 = (sizetype) _7;
+      _9 = _8 + 1;
+      _10 = _9 * 4;
+      _87 = n_23(D) - j_24;
+
+    }
+    bb_17 (preds = {bb_9 }, succs = {bb_5 })
+    {
+      <bb 17> [local count: 12992276]:
+      # .MEM_86 = PHI <.MEM_55(9)>
+      goto <bb 5>; [100.00%]
+
+    }
+    loop_2 (header = 7, latch = 12, finite_p
+    niter ((unsigned int) n_23(D) - (unsigned int) i_50) - 2
+    upper_bound 2147483645
+    likely_upper_bound 2147483645
+    iterations by profile: 8.090909 (unreliable, maybe flat) entry count:12992276 (estimated locally, freq 7.2009))
+    {
+      bb_7 (preds = {bb_12 bb_6 }, succs = {bb_8 })
+      {
+        <bb 7> [local count: 118111600]:
+        # j_51 = PHI <j_30(12), j_24(6)>
+        # .MEM_52 = PHI <.MEM_55(12), .MEM_54(6)>
+        _1 = m_25(D) * j_51;
+        _2 = _1 + l_26(D);
+        _3 = (long unsigned int) _2;
+        _4 = _3 * 4;
+        _5 = vector_27(D) + _4;
+        # VUSE <.MEM_52>
+        t_28 = *_5;
+        _11 = _1 + i_50;
+        _12 = (sizetype) _11;
+        _13 = _12 + 1;
+        _14 = _13 * 4;
+        _82 = (sizetype) _7;
+        _81 = _82 + 1;
+        _80 = _81 * 4;
+        _79 = vector_27(D) + _80;
+        ivtmp.23_83 = (unsigned long) _79;
+        _75 = (sizetype) _11;
+        _74 = _75 + 1;
+        _73 = _74 * 4;
+        _72 = vector_27(D) + _73;
+        ivtmp.25_76 = (unsigned long) _72;
+
+      }
+      bb_9 (preds = {bb_8 }, succs = {bb_12 bb_17 })
+      {
+        <bb 9> [local count: 118111600]:
+        # .MEM_55 = PHI <.MEM_42(8)>
+        j_30 = j_51 + 1;
+        if (n_23(D) > j_30)
+          goto <bb 12>; [89.00%]
+        else
+          goto <bb 17>; [11.00%]
+
+      }
+      bb_12 (preds = {bb_9 }, succs = {bb_7 })
+      {
+        <bb 12> [local count: 105119324]:
+        goto <bb 7>; [100.00%]
+
+      }
+      loop_3 (header = 8, latch = 13, finite_p
+      niter _87 > 0 ? (unsigned int) _87 + 4294967295 : 0
+      upper_bound 2147483645
+      likely_upper_bound 2147483645
+      iterations by profile: 7.090909 (unreliable, maybe flat) entry count:118111600 (estimated locally, freq 65.4628))
+      {
+        bb_8 (preds = {bb_13 bb_7 }, succs = {bb_13 bb_9 })
+        {
+          <bb 8> [local count: 955630225]:
+          # i_56 = PHI <i_40(13), 0(7)>
+          # .MEM_57 = PHI <.MEM_42(13), .MEM_52(7)>
+          # ivtmp.23_85 = PHI <ivtmp.23_84(13), ivtmp.23_83(7)>
+          # ivtmp.25_78 = PHI <ivtmp.25_77(13), ivtmp.25_76(7)>
+          _32 = (long unsigned int) i_56;
+          _33 = _32 * 4;
+          _21 = _10 + _33;
+          _34 = vector_27(D) + _21;
+          _71 = (void *) ivtmp.23_85;
+          # VUSE <.MEM_57>
+          _35 = MEM[(float *)_71];
+          _29 = _14 + _33;
+          _36 = vector_27(D) + _29;
+          _69 = (void *) ivtmp.25_78;
+          # VUSE <.MEM_57>
+          _37 = MEM[(float *)_69];
+          _38 = t_28 * _37;
+          _39 = _35 + _38;
+          _70 = (void *) ivtmp.23_85;
+          # .MEM_42 = VDEF <.MEM_57>
+          MEM[(float *)_70] = _39;
+          i_40 = i_56 + 1;
+          ivtmp.23_84 = ivtmp.23_85 + 4;
+          ivtmp.25_77 = ivtmp.25_78 + 4;
+          if (i_40 < _87)
+            goto <bb 13>; [89.00%]
+          else
+            goto <bb 9>; [11.00%]
+
+        }
+        bb_13 (preds = {bb_8 }, succs = {bb_8 })
+        {
+          <bb 13> [local count: 850510901]:
+          goto <bb 8>; [100.00%]
+
+        }
+      }
+    }
+  }
+}
+Analyzing # of iterations of loop 2
+  exit condition [i_50 + 2, + , 1](no_overflow) < n_23(D)
+  bounds on difference of bases: 0 ... 2147483645
+  result:
+    # of iterations ((unsigned int) n_23(D) - (unsigned int) i_50) - 2, bounded by 2147483645
+  number of iterations ((unsigned int) n_23(D) - (unsigned int) i_50) - 2
+
+<Induction Vars>:
+IV struct:
+  SSA_NAME:	_1
+  Type:	int
+  Base:	(i_50 + 1) * m_25(D)
+  Step:	m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_2
+  Type:	int
+  Base:	(i_50 + 1) * m_25(D) + l_26(D)
+  Step:	m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_3
+  Type:	long unsigned int
+  Base:	(long unsigned int) ((i_50 + 1) * m_25(D)) + (long unsigned int) l_26(D)
+  Step:	(long unsigned int) m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_4
+  Type:	long unsigned int
+  Base:	((long unsigned int) ((i_50 + 1) * m_25(D)) + (long unsigned int) l_26(D)) * 4
+  Step:	(long unsigned int) m_25(D) * 4
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_5
+  Type:	float *
+  Base:	vector_27(D) + ((long unsigned int) ((i_50 + 1) * m_25(D)) + (long unsigned int) l_26(D)) * 4
+  Step:	(long unsigned int) m_25(D) * 4
+  Object:	(void *) vector_27(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_11
+  Type:	int
+  Base:	(i_50 + 1) * m_25(D) + i_50
+  Step:	m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_12
+  Type:	sizetype
+  Base:	(sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50
+  Step:	(sizetype) m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_13
+  Type:	sizetype
+  Base:	((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1
+  Step:	(sizetype) m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_14
+  Type:	sizetype
+  Base:	(((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1) * 4
+  Step:	(sizetype) m_25(D) * 4
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	j_30
+  Type:	int
+  Base:	i_50 + 2
+  Step:	1
+  Biv:	Y
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	j_51
+  Type:	int
+  Base:	i_50 + 1
+  Step:	1
+  Biv:	Y
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_72
+  Type:	float *
+  Base:	vector_27(D) + (((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1) * 4
+  Step:	(sizetype) m_25(D) * 4
+  Object:	(void *) vector_27(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_73
+  Type:	sizetype
+  Base:	(((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1) * 4
+  Step:	(sizetype) m_25(D) * 4
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_74
+  Type:	sizetype
+  Base:	((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1
+  Step:	(sizetype) m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_75
+  Type:	sizetype
+  Base:	(sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50
+  Step:	(sizetype) m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	ivtmp.25_76
+  Type:	unsigned long
+  Base:	(unsigned long) (vector_27(D) + (((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1) * 4)
+  Step:	(sizetype) m_25(D) * 4
+  Object:	(void *) vector_27(D)
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+
+<IV Groups>:
+Group 0:
+  Type:	REFERENCE ADDRESS
+  Use 0.0:
+    At stmt:	t_28 = *_5;
+    At pos:	*_5
+    IV struct:
+      Type:	float *
+      Base:	vector_27(D) + ((long unsigned int) ((i_50 + 1) * m_25(D)) + (long unsigned int) l_26(D)) * 4
+      Step:	(long unsigned int) m_25(D) * 4
+      Object:	(void *) vector_27(D)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+Group 1:
+  Type:	COMPARE
+  Use 1.0:
+    At stmt:	if (n_23(D) > j_30)
+    At pos:	j_30
+    IV struct:
+      Type:	int
+      Base:	i_50 + 2
+      Step:	1
+      Biv:	Y
+      Overflowness wrto loop niter:	No-overflow
+Group 2:
+  Type:	GENERIC
+  Use 2.0:
+    At stmt:	ivtmp.25_76 = (unsigned long) _72;
+    At pos:	
+    IV struct:
+      Type:	unsigned long
+      Base:	(unsigned long) (vector_27(D) + (((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1) * 4)
+      Step:	(sizetype) m_25(D) * 4
+      Object:	(void *) vector_27(D)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+Group 3:
+  Type:	GENERIC
+  Use 3.0:
+    At stmt:	_14 = _13 * 4;
+    At pos:	
+    IV struct:
+      Type:	sizetype
+      Base:	(((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1) * 4
+      Step:	(sizetype) m_25(D) * 4
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+
+Predict doloop failure due to target specific checks.
+Candidate 0:
+  Var befor: ivtmp.29
+  Var after: ivtmp.29
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 1:
+  Var befor: ivtmp.30
+  Var after: ivtmp.30
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 2:
+  Var befor: ivtmp.31
+  Var after: ivtmp.31
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	(sizetype) (i_50 + 2)
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 3:
+  Var befor: ivtmp.32
+  Var after: ivtmp.32
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	(sizetype) (i_50 + 1)
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 4:
+  Incr POS: orig biv
+  IV struct:
+    Type:	int
+    Base:	i_50 + 1
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 5:
+  Depend on inv.exprs: 1
+  Var befor: ivtmp.33
+  Var after: ivtmp.33
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) (vector_27(D) + ((long unsigned int) ((i_50 + 1) * m_25(D)) + (long unsigned int) l_26(D)) * 4)
+    Step:	(unsigned long) ((long unsigned int) m_25(D) * 4)
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 6:
+  Var befor: ivtmp.34
+  Var after: ivtmp.34
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	(unsigned int) (i_50 + 2)
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 7:
+  Var befor: ivtmp.35
+  Var after: ivtmp.35
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	(unsigned int) i_50
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 8:
+  Depend on inv.exprs: 1
+  Var befor: ivtmp.36
+  Var after: ivtmp.36
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) (vector_27(D) + (((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1) * 4)
+    Step:	(sizetype) m_25(D) * 4
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 9:
+  Depend on inv.exprs: 1
+  Var befor: ivtmp.37
+  Var after: ivtmp.37
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) (((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) * 4) + (unsigned long) vector_27(D)
+    Step:	(sizetype) m_25(D) * 4
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 10:
+  Depend on inv.exprs: 1
+  Var befor: ivtmp.38
+  Var after: ivtmp.38
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	(((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1) * 4
+    Step:	(sizetype) m_25(D) * 4
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 11:
+  Depend on inv.exprs: 1
+  Var befor: ivtmp.39
+  Var after: ivtmp.39
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) * 4
+    Step:	(sizetype) m_25(D) * 4
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 12:
+  Depend on inv.exprs: 1
+  Var befor: ivtmp.40
+  Var after: ivtmp.40
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	0
+    Step:	(long unsigned int) m_25(D) * 4
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+
+<Important Candidates>:	 0, 1, 2, 3, 4,
+
+<Group, Cand> Related:
+  Group 0:	0, 1, 2, 3, 4, 5, 12
+  Group 1:	0, 1, 2, 3, 4, 6, 7
+  Group 2:	0, 1, 2, 3, 4, 8, 9, 10, 11, 12
+  Group 3:	0, 1, 2, 3, 4, 10, 11, 12
+
+<Candidate Costs>:
+  cand	cost
+  0	5
+  1	5
+  2	6
+  3	6
+  4	4
+  5	9
+  6	5
+  7	5
+  8	10
+  9	9
+  10	10
+  11	9
+  12	5
+
+
+<Invariant Vars>:
+Inv 6:	_7
+Inv 8:	_10
+Inv 7:	n_23(D)	(eliminable)
+Inv 1:	j_24	(eliminable)
+Inv 2:	m_25(D)	(eliminable)
+Inv 3:	l_26(D)	(eliminable)
+Inv 4:	vector_27(D)
+Inv 5:	i_50	(eliminable)
+Inv 9:	_87
+
+<Invariant Expressions>:
+inv_expr 1: 	(long unsigned int) m_25(D) * 4
+inv_expr 2: 	((unsigned long) l_26(D) - (unsigned long) i_50) * 4
+inv_expr 3: 	(unsigned long) i_50 * 18446744073709551612 + (unsigned long) l_26(D) * 4
+inv_expr 4: 	((unsigned long) l_26(D) * 4 + (unsigned long) vector_27(D)) - (unsigned long) i_50 * 4
+inv_expr 5: 	((unsigned long) ((i_50 + 1) * m_25(D)) + (unsigned long) l_26(D)) * 4 + (unsigned long) vector_27(D)
+inv_expr 6: 	((unsigned int) n_23(D) - (unsigned int) i_50) + 4294967295
+inv_expr 7: 	(signed int) i_50 + 1
+inv_expr 8: 	(unsigned long) (((unsigned int) n_23(D) - (unsigned int) i_50) + 4294967294) + 1
+inv_expr 9: 	((sizetype) i_50 + (sizetype) (((unsigned int) n_23(D) - (unsigned int) i_50) + 4294967294)) + 3
+inv_expr 10: 	((sizetype) i_50 + (sizetype) (((unsigned int) n_23(D) - (unsigned int) i_50) + 4294967294)) + 2
+inv_expr 11: 	(((signed long) i_50 - (signed long) l_26(D)) + 1) * 4
+inv_expr 12: 	(signed long) vector_27(D) + 4
+inv_expr 13: 	(((signed long) ((i_50 + 1) * m_25(D)) * 4 + (signed long) vector_27(D)) + (signed long) i_50 * 4) + 4
+inv_expr 14: 	(((signed long) i_50 * 4 - (signed long) vector_27(D)) - (signed long) l_26(D) * 4) + 4
+inv_expr 15: 	4 - (signed long) vector_27(D)
+inv_expr 16: 	(((signed long) ((i_50 + 1) * m_25(D)) + (signed long) i_50) + 1) * 4
+
+<Group-candidate Costs>:
+Group 0:
+  cand	cost	compl.	inv.expr.	inv.vars
+  5	1	0	NIL;	NIL;
+  8	8	2	2;	NIL;
+  9	8	1	3;	NIL;
+  10	8	2	4;	NIL;
+  11	8	1	4;	NIL;
+  12	10	1	5;	NIL;
+
+Group 1:
+  cand	cost	compl.	inv.expr.	inv.vars
+  0	0	0	6;	NIL;
+  1	2	0	8;	NIL;
+  2	3	0	9;	NIL;
+  3	0	0	NIL;	7
+  4	0	0	NIL;	7
+  6	0	0	NIL;	7
+  7	0	0	NIL;	7
+
+Group 2:
+  cand	cost	compl.	inv.expr.	inv.vars
+  5	6	0	11;	NIL;
+  8	0	0	NIL;	NIL;
+  9	4	0	NIL;	NIL;
+  10	4	0	NIL;	NIL;
+  11	4	0	12;	NIL;
+  12	9	0	13;	NIL;
+
+Group 3:
+  cand	cost	compl.	inv.expr.	inv.vars
+  5	7	0	14;	NIL;
+  8	8	0	NIL;	NIL;
+  9	4	0	15;	NIL;
+  10	0	0	NIL;	NIL;
+  11	4	0	NIL;	NIL;
+  12	9	0	16;	NIL;
+
+
+<Global Costs>:
+  target_avail_regs 26
+  target_clobbered_regs 16
+  target_reg_cost 4
+  target_spill_cost 24
+  regs_used 4
+  cost for size:
+  ivs	cost
+  0	0
+  1	2
+  2	4
+  3	6
+  4	8
+  5	10
+  6	12
+  7	14
+  8	16
+  9	18
+  10	20
+  11	22
+  12	24
+  13	26
+  14	28
+  15	30
+  16	32
+  17	34
+  18	36
+  19	111
+  20	116
+  21	121
+  22	126
+  23	151
+  24	176
+  25	201
+  26	226
+  27	275
+  28	324
+  29	373
+  30	422
+  31	471
+  32	520
+  33	569
+  34	618
+  35	667
+  36	716
+  37	765
+  38	814
+  39	863
+  40	912
+  41	961
+  42	1010
+  43	1059
+  44	1108
+  45	1157
+  46	1206
+  47	1255
+  48	1304
+  49	1353
+  50	1402
+  51	1451
+  52	1500
+
+Initial set of candidates:
+  cost: 35 (complexity 0)
+  reg_cost: 8
+  cand_cost: 13
+  cand_group_cost: 14 (complexity 0)
+  candidates: 4, 5
+   group:0 --> iv_cand:5, cost=(1,0)
+   group:1 --> iv_cand:4, cost=(0,0)
+   group:2 --> iv_cand:5, cost=(6,0)
+   group:3 --> iv_cand:5, cost=(7,0)
+  invariant variables: 7
+  invariant expressions: 1, 11, 14
+
+Improved to:
+  cost: 33 (complexity 2)
+  reg_cost: 7
+  cand_cost: 14
+  cand_group_cost: 12 (complexity 2)
+  candidates: 4, 10
+   group:0 --> iv_cand:10, cost=(8,2)
+   group:1 --> iv_cand:4, cost=(0,0)
+   group:2 --> iv_cand:10, cost=(4,0)
+   group:3 --> iv_cand:10, cost=(0,0)
+  invariant variables: 7
+  invariant expressions: 1, 4
+
+Initial set of candidates:
+  cost: 33 (complexity 2)
+  reg_cost: 7
+  cand_cost: 14
+  cand_group_cost: 12 (complexity 2)
+  candidates: 4, 10
+   group:0 --> iv_cand:10, cost=(8,2)
+   group:1 --> iv_cand:4, cost=(0,0)
+   group:2 --> iv_cand:10, cost=(4,0)
+   group:3 --> iv_cand:10, cost=(0,0)
+  invariant variables: 7
+  invariant expressions: 1, 4
+
+Original cost 33 (complexity 2)
+
+Final cost 33 (complexity 2)
+
+Selected IV set for loop 2 at fp_foo.c:9, 10 avg niters, 2 IVs:
+Candidate 4:
+  Var befor: j_51
+  Var after: j_30
+  Incr POS: orig biv
+  IV struct:
+    Type:	int
+    Base:	i_50 + 1
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 10:
+  Depend on inv.exprs: 1
+  Var befor: ivtmp.38_68
+  Var after: ivtmp.38_67
+  Incr POS: before exit test
+  IV struct:
+    Type:	sizetype
+    Base:	(((sizetype) ((i_50 + 1) * m_25(D)) + (sizetype) i_50) + 1) * 4
+    Step:	(sizetype) m_25(D) * 4
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+
+Replacing exit test: if (n_23(D) > j_30)
+;;
+;; Loop 1
+;;  header 4, latch 11
+;;  depth 1, outer 0, finite_p
+;;  niter (unsigned int) n_23(D) + 4294967294
+;;  upper_bound 2147483645
+;;  likely_upper_bound 2147483645
+;;  iterations by profile: 8.090909 (unreliable, maybe flat) entry count:1605787 (estimated locally, freq 0.8900)
+;;  nodes: 4 11 5 15 17 9 8 13 7 12 6
+Processing loop 1 at fp_foo.c:8
+  single exit 5 -> 16, exit condition if (j_24 < _45)
+
+
+
+Loops in function: dgefa
+loop_0 (header = 0, latch = 1)
+{
+  bb_2 (preds = {bb_0 }, succs = {bb_10 bb_14 })
+  {
+    <bb 2> [local count: 1804255]:
+    _45 = n_23(D) + -1;
+    if (n_23(D) > 1)
+      goto <bb 10>; [89.00%]
+    else
+      goto <bb 14>; [11.00%]
+
+  }
+  bb_14 (preds = {bb_2 }, succs = {bb_3 })
+  {
+    <bb 14> [local count: 198468]:
+
+  }
+  bb_3 (preds = {bb_14 bb_16 }, succs = {bb_1 })
+  {
+    <bb 3> [local count: 1804255]:
+    # .MEM_88 = PHI <.MEM_22(D)(14), .MEM_53(16)>
+    # VUSE <.MEM_88>
+    return;
+
+  }
+  bb_10 (preds = {bb_2 }, succs = {bb_4 })
+  {
+    <bb 10> [local count: 1605787]:
+
+  }
+  bb_16 (preds = {bb_5 }, succs = {bb_3 })
+  {
+    <bb 16> [local count: 1605787]:
+    # .MEM_53 = PHI <.MEM_89(5)>
+    goto <bb 3>; [100.00%]
+
+  }
+  loop_1 (header = 4, latch = 11, finite_p
+  niter (unsigned int) n_23(D) + 4294967294
+  upper_bound 2147483645
+  likely_upper_bound 2147483645
+  iterations by profile: 8.090909 (unreliable, maybe flat) entry count:1605787 (estimated locally, freq 0.8900))
+  {
+    bb_4 (preds = {bb_11 bb_10 }, succs = {bb_6 bb_15 })
+    {
+      <bb 4> [local count: 14598063]:
+      # i_50 = PHI <j_24(11), 0(10)>
+      # .MEM_54 = PHI <.MEM_89(11), .MEM_22(D)(10)>
+      j_24 = i_50 + 1;
+      if (n_23(D) > j_24)
+        goto <bb 6>; [89.00%]
+      else
+        goto <bb 15>; [11.00%]
+
+    }
+    bb_15 (preds = {bb_4 }, succs = {bb_5 })
+    {
+      <bb 15> [local count: 1605787]:
+
+    }
+    bb_5 (preds = {bb_15 bb_17 }, succs = {bb_11 bb_16 })
+    {
+      <bb 5> [local count: 14598063]:
+      # .MEM_89 = PHI <.MEM_54(15), .MEM_86(17)>
+      if (j_24 < _45)
+        goto <bb 11>; [89.00%]
+      else
+        goto <bb 16>; [11.00%]
+
+    }
+    bb_11 (preds = {bb_5 }, succs = {bb_4 })
+    {
+      <bb 11> [local count: 12992276]:
+      goto <bb 4>; [100.00%]
+
+    }
+    bb_6 (preds = {bb_4 }, succs = {bb_7 })
+    {
+      <bb 6> [local count: 12992276]:
+      _6 = m_25(D) * i_50;
+      _7 = _6 + i_50;
+      _8 = (sizetype) _7;
+      _9 = _8 + 1;
+      _10 = _9 * 4;
+      _87 = n_23(D) - j_24;
+      _66 = (sizetype) m_25(D);
+      _65 = _66 * 4;
+      _63 = i_50 + 1;
+      _62 = m_25(D) * _63;
+      _61 = (sizetype) _62;
+      _60 = (sizetype) i_50;
+      _59 = _60 + _61;
+      _58 = _59 + 1;
+      ivtmp.38_64 = _58 * 4;
+
+    }
+    bb_17 (preds = {bb_9 }, succs = {bb_5 })
+    {
+      <bb 17> [local count: 12992276]:
+      # .MEM_86 = PHI <.MEM_55(9)>
+      goto <bb 5>; [100.00%]
+
+    }
+    loop_2 (header = 7, latch = 12, finite_p
+    niter ((unsigned int) n_23(D) - (unsigned int) i_50) - 2
+    upper_bound 2147483645
+    likely_upper_bound 2147483645
+    iterations by profile: 8.090909 (unreliable, maybe flat) entry count:12992276 (estimated locally, freq 7.2009))
+    {
+      bb_7 (preds = {bb_12 bb_6 }, succs = {bb_8 })
+      {
+        <bb 7> [local count: 118111600]:
+        # j_51 = PHI <j_30(12), j_24(6)>
+        # .MEM_52 = PHI <.MEM_55(12), .MEM_54(6)>
+        # ivtmp.38_68 = PHI <ivtmp.38_67(12), ivtmp.38_64(6)>
+        _1 = m_25(D) * j_51;
+        _2 = _1 + l_26(D);
+        _3 = (long unsigned int) _2;
+        _4 = _3 * 4;
+        _5 = vector_27(D) + _4;
+        _49 = (sizetype) i_50;
+        _48 = _49 * 18446744073709551612;
+        _47 = (sizetype) l_26(D);
+        _46 = _47 * 4;
+        _44 = _46 + _48;
+        _43 = vector_27(D) + _44;
+        _41 = _43 + 18446744073709551612;
+        _31 = _43 + ivtmp.38_68;
+        # VUSE <.MEM_52>
+        t_28 = MEM[(float *)_31 + -4B];
+        _11 = _1 + i_50;
+        _12 = (sizetype) _11;
+        _13 = _12 + 1;
+        _14 = ivtmp.38_68;
+        _82 = (sizetype) _7;
+        _81 = _82 + 1;
+        _80 = _81 * 4;
+        _79 = vector_27(D) + _80;
+        ivtmp.23_83 = (unsigned long) _79;
+        _75 = (sizetype) _11;
+        _74 = _75 + 1;
+        _73 = _74 * 4;
+        _72 = vector_27(D) + _73;
+        _20 = (unsigned long) vector_27(D);
+        _19 = _20 + ivtmp.38_68;
+        ivtmp.25_76 = _19;
+
+      }
+      bb_9 (preds = {bb_8 }, succs = {bb_12 bb_17 })
+      {
+        <bb 9> [local count: 118111600]:
+        # .MEM_55 = PHI <.MEM_42(8)>
+        j_30 = j_51 + 1;
+        ivtmp.38_67 = ivtmp.38_68 + _65;
+        if (j_30 != n_23(D))
+          goto <bb 12>; [89.00%]
+        else
+          goto <bb 17>; [11.00%]
+
+      }
+      bb_12 (preds = {bb_9 }, succs = {bb_7 })
+      {
+        <bb 12> [local count: 105119324]:
+        goto <bb 7>; [100.00%]
+
+      }
+      loop_3 (header = 8, latch = 13, finite_p
+      niter _87 > 0 ? (unsigned int) _87 + 4294967295 : 0
+      upper_bound 2147483645
+      likely_upper_bound 2147483645
+      iterations by profile: 7.090909 (unreliable, maybe flat) entry count:118111600 (estimated locally, freq 65.4628))
+      {
+        bb_8 (preds = {bb_13 bb_7 }, succs = {bb_13 bb_9 })
+        {
+          <bb 8> [local count: 955630225]:
+          # i_56 = PHI <i_40(13), 0(7)>
+          # .MEM_57 = PHI <.MEM_42(13), .MEM_52(7)>
+          # ivtmp.23_85 = PHI <ivtmp.23_84(13), ivtmp.23_83(7)>
+          # ivtmp.25_78 = PHI <ivtmp.25_77(13), ivtmp.25_76(7)>
+          _32 = (long unsigned int) i_56;
+          _33 = _32 * 4;
+          _21 = _10 + _33;
+          _34 = vector_27(D) + _21;
+          _71 = (void *) ivtmp.23_85;
+          # VUSE <.MEM_57>
+          _35 = MEM[(float *)_71];
+          _29 = _14 + _33;
+          _36 = vector_27(D) + _29;
+          _69 = (void *) ivtmp.25_78;
+          # VUSE <.MEM_57>
+          _37 = MEM[(float *)_69];
+          _38 = t_28 * _37;
+          _39 = _35 + _38;
+          _70 = (void *) ivtmp.23_85;
+          # .MEM_42 = VDEF <.MEM_57>
+          MEM[(float *)_70] = _39;
+          i_40 = i_56 + 1;
+          ivtmp.23_84 = ivtmp.23_85 + 4;
+          ivtmp.25_77 = ivtmp.25_78 + 4;
+          if (i_40 < _87)
+            goto <bb 13>; [89.00%]
+          else
+            goto <bb 9>; [11.00%]
+
+        }
+        bb_13 (preds = {bb_8 }, succs = {bb_8 })
+        {
+          <bb 13> [local count: 850510901]:
+          goto <bb 8>; [100.00%]
+
+        }
+      }
+    }
+  }
+}
+Analyzing # of iterations of loop 1
+  exit condition [1, + , 1](no_overflow) < n_23(D) + -1
+  bounds on difference of bases: 0 ... 2147483645
+  result:
+    # of iterations (unsigned int) n_23(D) + 4294967294, bounded by 2147483645
+  number of iterations (unsigned int) n_23(D) + 4294967294
+
+<Induction Vars>:
+IV struct:
+  SSA_NAME:	_6
+  Type:	int
+  Base:	0
+  Step:	m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_7
+  Type:	int
+  Base:	0
+  Step:	(int) ((unsigned int) m_25(D) + 1)
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	j_24
+  Type:	int
+  Base:	1
+  Step:	1
+  Biv:	Y
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_41
+  Type:	float *
+  Base:	vector_27(D) + ((sizetype) l_26(D) * 4 + 18446744073709551612)
+  Step:	18446744073709551612
+  Object:	(void *) vector_27(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_43
+  Type:	float *
+  Base:	vector_27(D) + (sizetype) l_26(D) * 4
+  Step:	18446744073709551612
+  Object:	(void *) vector_27(D)
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_44
+  Type:	sizetype
+  Base:	(sizetype) l_26(D) * 4
+  Step:	18446744073709551612
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_48
+  Type:	sizetype
+  Base:	0
+  Step:	18446744073709551612
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_49
+  Type:	sizetype
+  Base:	0
+  Step:	1
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	i_50
+  Type:	int
+  Base:	0
+  Step:	1
+  Biv:	Y
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_60
+  Type:	sizetype
+  Base:	0
+  Step:	1
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_62
+  Type:	int
+  Base:	m_25(D)
+  Step:	m_25(D)
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+IV struct:
+  SSA_NAME:	_63
+  Type:	int
+  Base:	1
+  Step:	1
+  Biv:	N
+  Overflowness wrto loop niter:	No-overflow
+IV struct:
+  SSA_NAME:	_87
+  Type:	int
+  Base:	n_23(D) + -1
+  Step:	-1
+  Biv:	N
+  Overflowness wrto loop niter:	Overflow
+
+<IV Groups>:
+Group 0:
+  Type:	COMPARE
+  Use 0.0:
+    At stmt:	if (n_23(D) > j_24)
+    At pos:	j_24
+    IV struct:
+      Type:	int
+      Base:	1
+      Step:	1
+      Biv:	Y
+      Overflowness wrto loop niter:	No-overflow
+Group 1:
+  Type:	COMPARE
+  Use 1.0:
+    At stmt:	if (j_24 < _45)
+    At pos:	j_24
+    IV struct:
+      Type:	int
+      Base:	1
+      Step:	1
+      Biv:	Y
+      Overflowness wrto loop niter:	No-overflow
+Group 2:
+  Type:	COMPARE
+  Use 2.0:
+    At stmt:	if (i_40 < _87)
+    At pos:	_87
+    IV struct:
+      Type:	int
+      Base:	n_23(D) + -1
+      Step:	-1
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+Group 3:
+  Type:	GENERIC
+  Use 3.0:
+    At stmt:	j_24 = i_50 + 1;
+    At pos:	
+    IV struct:
+      Type:	int
+      Base:	1
+      Step:	1
+      Biv:	Y
+      Overflowness wrto loop niter:	No-overflow
+Group 4:
+  Type:	GENERIC
+  Use 4.0:
+    At stmt:	_43 = vector_27(D) + _44;
+    At pos:	
+    IV struct:
+      Type:	float *
+      Base:	vector_27(D) + (sizetype) l_26(D) * 4
+      Step:	18446744073709551612
+      Object:	(void *) vector_27(D)
+      Biv:	N
+      Overflowness wrto loop niter:	No-overflow
+Group 5:
+  Type:	GENERIC
+  Use 5.0:
+    At stmt:	i_50 = PHI <j_24(11), 0(10)>
+    At pos:	
+    IV struct:
+      Type:	int
+      Base:	0
+      Step:	1
+      Biv:	Y
+      Overflowness wrto loop niter:	No-overflow
+Group 6:
+  Type:	GENERIC
+  Use 6.0:
+    At stmt:	_7 = _6 + i_50;
+    At pos:	
+    IV struct:
+      Type:	int
+      Base:	0
+      Step:	(int) ((unsigned int) m_25(D) + 1)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+Group 7:
+  Type:	GENERIC
+  Use 7.0:
+    At stmt:	_62 = m_25(D) * _63;
+    At pos:	
+    IV struct:
+      Type:	int
+      Base:	m_25(D)
+      Step:	m_25(D)
+      Biv:	N
+      Overflowness wrto loop niter:	Overflow
+Group 8:
+  Type:	GENERIC
+  Use 8.0:
+    At stmt:	_60 = (sizetype) i_50;
+    At pos:	
+    IV struct:
+      Type:	sizetype
+      Base:	0
+      Step:	1
+      Biv:	N
+      Overflowness wrto loop niter:	No-overflow
+
+Predict doloop failure due to target specific checks.
+Candidate 0:
+  Var befor: ivtmp.41
+  Var after: ivtmp.41
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 1:
+  Var befor: ivtmp.42
+  Var after: ivtmp.42
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 2:
+  Var befor: ivtmp.43
+  Var after: ivtmp.43
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	1
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 3:
+  Incr POS: orig biv
+  IV struct:
+    Type:	int
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 4:
+  Var befor: ivtmp.44
+  Var after: ivtmp.44
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	(unsigned int) (n_23(D) + -1)
+    Step:	4294967295
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 5:
+  Var befor: ivtmp.45
+  Var after: ivtmp.45
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	(unsigned int) n_23(D)
+    Step:	4294967295
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 6:
+  Var befor: ivtmp.46
+  Var after: ivtmp.46
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) (vector_27(D) + (sizetype) l_26(D) * 4)
+    Step:	18446744073709551612
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 7:
+  Depend on inv.exprs: 1
+  Var befor: ivtmp.47
+  Var after: ivtmp.47
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	0
+    Step:	(unsigned int) m_25(D) + 1
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 8:
+  Var befor: ivtmp.48
+  Var after: ivtmp.48
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	(unsigned int) m_25(D)
+    Step:	(unsigned int) m_25(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+
+<Important Candidates>:	 0, 1, 2, 3,
+
+<Group, Cand> Related:
+  Group 0:	0, 1, 2, 3
+  Group 1:	0, 1, 2, 3
+  Group 2:	0, 1, 2, 3, 4, 5
+  Group 3:	0, 1, 2, 3
+  Group 4:	0, 1, 2, 3, 6
+  Group 5:	0, 1, 2, 3
+  Group 6:	0, 1, 2, 3, 7
+  Group 7:	0, 1, 2, 3, 8
+  Group 8:	0, 1, 2, 3
+
+<Candidate Costs>:
+  cand	cost
+  0	5
+  1	5
+  2	5
+  3	4
+  4	5
+  5	5
+  6	6
+  7	5
+  8	5
+
+Scaling cost based on bb prob by 20.00: 4 (scratch: 0) -> 80
+Scaling cost based on bb prob by 20.00: 4 (scratch: 0) -> 80
+Scaling cost based on bb prob by 20.00: 4 (scratch: 0) -> 80
+Scaling cost based on bb prob by 20.00: 4 (scratch: 0) -> 80
+Scaling cost based on bb prob by 20.00: 0 (scratch: 0) -> 0
+Scaling cost based on bb prob by 20.00: 4 (scratch: 0) -> 80
+Scaling cost based on bb prob by 2.00: 9 (scratch: 1) -> 17
+Scaling cost based on bb prob by 2.00: 0 (scratch: 0) -> 0
+
+<Invariant Vars>:
+Inv 1:	n_23(D)
+Inv 4:	m_25(D)
+Inv 5:	l_26(D)
+Inv 3:	vector_27(D)
+Inv 2:	_45	(eliminable)
+
+<Invariant Expressions>:
+inv_expr 1: 	(unsigned int) m_25(D) + 1
+inv_expr 2: 	(signed int) n_23(D) + 1
+inv_expr 3: 	(signed int) n_23(D) + -1
+inv_expr 4: 	(signed long) l_26(D) * 4 + (signed long) vector_27(D)
+
+<Group-candidate Costs>:
+Group 0:
+  cand	cost	compl.	inv.expr.	inv.vars
+  0	4	0	NIL;	NIL;
+  1	4	0	NIL;	NIL;
+  2	0	0	NIL;	NIL;
+  3	0	0	NIL;	NIL;
+  4	4	0	NIL;	NIL;
+  5	4	0	2;	NIL;
+
+Group 1:
+  cand	cost	compl.	inv.expr.	inv.vars
+  0	0	0	NIL;	NIL;
+  1	0	0	NIL;	2
+  2	0	0	NIL;	NIL;
+  3	0	0	NIL;	NIL;
+  4	0	0	NIL;	NIL;
+  5	0	0	NIL;	NIL;
+  6	3	0	NIL;	NIL;
+
+Group 2:
+  cand	cost	compl.	inv.expr.	inv.vars
+  0	80	0	3;	NIL;
+  1	80	0	3;	NIL;
+  2	80	0	NIL;	NIL;
+  3	80	0	NIL;	NIL;
+  4	0	0	NIL;	NIL;
+  5	80	0	NIL;	NIL;
+
+Group 3:
+  cand	cost	compl.	inv.expr.	inv.vars
+  0	4	0	NIL;	NIL;
+  1	4	0	NIL;	NIL;
+  2	0	0	NIL;	NIL;
+  3	0	0	NIL;	NIL;
+  4	4	0	NIL;	NIL;
+  5	4	0	2;	NIL;
+
+Group 4:
+  cand	cost	compl.	inv.expr.	inv.vars
+  1	17	0	4;	NIL;
+  6	0	0	NIL;	NIL;
+
+Group 5:
+  cand	cost	compl.	inv.expr.	inv.vars
+  0	0	0	NIL;	NIL;
+  1	0	0	NIL;	NIL;
+  2	4	0	NIL;	NIL;
+  3	0	0	NIL;	NIL;
+  4	4	0	3;	NIL;
+  5	4	0	NIL;	NIL;
+
+Group 6:
+  cand	cost	compl.	inv.expr.	inv.vars
+  7	0	0	NIL;	NIL;
+
+Group 7:
+  cand	cost	compl.	inv.expr.	inv.vars
+  8	0	0	NIL;	NIL;
+
+Group 8:
+  cand	cost	compl.	inv.expr.	inv.vars
+  1	0	0	NIL;	NIL;
+
+
+<Global Costs>:
+  target_avail_regs 26
+  target_clobbered_regs 16
+  target_reg_cost 4
+  target_spill_cost 24
+  regs_used 4
+  cost for size:
+  ivs	cost
+  0	0
+  1	2
+  2	4
+  3	6
+  4	8
+  5	10
+  6	12
+  7	14
+  8	16
+  9	18
+  10	20
+  11	22
+  12	24
+  13	26
+  14	28
+  15	30
+  16	32
+  17	34
+  18	36
+  19	111
+  20	116
+  21	121
+  22	126
+  23	151
+  24	176
+  25	201
+  26	226
+  27	275
+  28	324
+  29	373
+  30	422
+  31	471
+  32	520
+  33	569
+  34	618
+  35	667
+  36	716
+  37	765
+  38	814
+  39	863
+  40	912
+  41	961
+  42	1010
+  43	1059
+  44	1108
+  45	1157
+  46	1206
+  47	1255
+  48	1304
+  49	1353
+  50	1402
+  51	1451
+  52	1500
+
+Initial set of candidates:
+  cost: 126 (complexity 0)
+  reg_cost: 10
+  cand_cost: 19
+  cand_group_cost: 97 (complexity 0)
+  candidates: 1, 3, 7, 8
+   group:0 --> iv_cand:3, cost=(0,0)
+   group:1 --> iv_cand:3, cost=(0,0)
+   group:2 --> iv_cand:3, cost=(80,0)
+   group:3 --> iv_cand:3, cost=(0,0)
+   group:4 --> iv_cand:1, cost=(17,0)
+   group:5 --> iv_cand:3, cost=(0,0)
+   group:6 --> iv_cand:7, cost=(0,0)
+   group:7 --> iv_cand:8, cost=(0,0)
+   group:8 --> iv_cand:1, cost=(0,0)
+  invariant variables: 
+  invariant expressions: 1, 4
+
+Improved to:
+  cost: 53 (complexity 0)
+  reg_cost: 12
+  cand_cost: 24
+  cand_group_cost: 17 (complexity 0)
+  candidates: 1, 3, 4, 7, 8
+   group:0 --> iv_cand:3, cost=(0,0)
+   group:1 --> iv_cand:3, cost=(0,0)
+   group:2 --> iv_cand:4, cost=(0,0)
+   group:3 --> iv_cand:3, cost=(0,0)
+   group:4 --> iv_cand:1, cost=(17,0)
+   group:5 --> iv_cand:3, cost=(0,0)
+   group:6 --> iv_cand:7, cost=(0,0)
+   group:7 --> iv_cand:8, cost=(0,0)
+   group:8 --> iv_cand:1, cost=(0,0)
+  invariant variables: 
+  invariant expressions: 1, 4
+
+Improved to:
+  cost: 43 (complexity 0)
+  reg_cost: 13
+  cand_cost: 30
+  cand_group_cost: 0 (complexity 0)
+  candidates: 1, 3, 4, 6, 7, 8
+   group:0 --> iv_cand:3, cost=(0,0)
+   group:1 --> iv_cand:3, cost=(0,0)
+   group:2 --> iv_cand:4, cost=(0,0)
+   group:3 --> iv_cand:3, cost=(0,0)
+   group:4 --> iv_cand:6, cost=(0,0)
+   group:5 --> iv_cand:3, cost=(0,0)
+   group:6 --> iv_cand:7, cost=(0,0)
+   group:7 --> iv_cand:8, cost=(0,0)
+   group:8 --> iv_cand:1, cost=(0,0)
+  invariant variables: 
+  invariant expressions: 1
+
+Initial set of candidates:
+  cost: 55 (complexity 0)
+  reg_cost: 10
+  cand_cost: 20
+  cand_group_cost: 25 (complexity 0)
+  candidates: 1, 4, 7, 8
+   group:0 --> iv_cand:4, cost=(4,0)
+   group:1 --> iv_cand:4, cost=(0,0)
+   group:2 --> iv_cand:4, cost=(0,0)
+   group:3 --> iv_cand:4, cost=(4,0)
+   group:4 --> iv_cand:1, cost=(17,0)
+   group:5 --> iv_cand:1, cost=(0,0)
+   group:6 --> iv_cand:7, cost=(0,0)
+   group:7 --> iv_cand:8, cost=(0,0)
+   group:8 --> iv_cand:1, cost=(0,0)
+  invariant variables: 
+  invariant expressions: 1, 4
+
+Improved to:
+  cost: 45 (complexity 0)
+  reg_cost: 11
+  cand_cost: 26
+  cand_group_cost: 8 (complexity 0)
+  candidates: 1, 4, 6, 7, 8
+   group:0 --> iv_cand:4, cost=(4,0)
+   group:1 --> iv_cand:4, cost=(0,0)
+   group:2 --> iv_cand:4, cost=(0,0)
+   group:3 --> iv_cand:4, cost=(4,0)
+   group:4 --> iv_cand:6, cost=(0,0)
+   group:5 --> iv_cand:1, cost=(0,0)
+   group:6 --> iv_cand:7, cost=(0,0)
+   group:7 --> iv_cand:8, cost=(0,0)
+   group:8 --> iv_cand:1, cost=(0,0)
+  invariant variables: 
+  invariant expressions: 1
+
+Improved to:
+  cost: 43 (complexity 0)
+  reg_cost: 13
+  cand_cost: 30
+  cand_group_cost: 0 (complexity 0)
+  candidates: 1, 3, 4, 6, 7, 8
+   group:0 --> iv_cand:3, cost=(0,0)
+   group:1 --> iv_cand:3, cost=(0,0)
+   group:2 --> iv_cand:4, cost=(0,0)
+   group:3 --> iv_cand:3, cost=(0,0)
+   group:4 --> iv_cand:6, cost=(0,0)
+   group:5 --> iv_cand:3, cost=(0,0)
+   group:6 --> iv_cand:7, cost=(0,0)
+   group:7 --> iv_cand:8, cost=(0,0)
+   group:8 --> iv_cand:1, cost=(0,0)
+  invariant variables: 
+  invariant expressions: 1
+
+Original cost 43 (complexity 0)
+
+Final cost 43 (complexity 0)
+
+Selected IV set for loop 1 at fp_foo.c:8, 10 avg niters, 6 IVs:
+Candidate 1:
+  Var befor: ivtmp.42_18
+  Var after: ivtmp.42_17
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 3:
+  Var befor: i_50
+  Var after: j_24
+  Incr POS: orig biv
+  IV struct:
+    Type:	int
+    Base:	0
+    Step:	1
+    Biv:	N
+    Overflowness wrto loop niter:	No-overflow
+Candidate 4:
+  Var befor: ivtmp.44_16
+  Var after: ivtmp.44_15
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	(unsigned int) (n_23(D) + -1)
+    Step:	4294967295
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 6:
+  Var befor: ivtmp.46_92
+  Var after: ivtmp.46_93
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned long
+    Base:	(unsigned long) (vector_27(D) + (sizetype) l_26(D) * 4)
+    Step:	18446744073709551612
+    Object:	(void *) vector_27(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 7:
+  Depend on inv.exprs: 1
+  Var befor: ivtmp.47_98
+  Var after: ivtmp.47_99
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	0
+    Step:	(unsigned int) m_25(D) + 1
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+Candidate 8:
+  Var befor: ivtmp.48_102
+  Var after: ivtmp.48_103
+  Incr POS: before exit test
+  IV struct:
+    Type:	unsigned int
+    Base:	(unsigned int) m_25(D)
+    Step:	(unsigned int) m_25(D)
+    Biv:	N
+    Overflowness wrto loop niter:	Overflow
+
+Replacing exit test: if (j_24 < _45)

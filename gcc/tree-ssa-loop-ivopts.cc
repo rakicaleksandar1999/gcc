@@ -4724,7 +4724,8 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
   rtx addr;
   bool simple_inv = true;
   tree comp_inv = NULL_TREE, type = aff_var->type;
-  comp_cost var_cost = no_cost, cost = no_cost;
+  comp_cost var_cost = no_cost, cost = no_cost, autoinc_cost = no_cost;
+  comp_cost acost = no_cost;
   struct mem_address parts = {NULL_TREE, integer_one_node,
 			      NULL_TREE, NULL_TREE, NULL_TREE};
   machine_mode addr_mode = TYPE_MODE (type);
@@ -4755,38 +4756,36 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
 	  if (!ok_with_ratio_p)
 	    parts.step = NULL_TREE;
 	}
-      if (ok_with_ratio_p || ok_without_ratio_p)
+      if (!(ok_with_ratio_p || ok_without_ratio_p))
+    parts.index = NULL_TREE;
+    
+      if (maybe_ne (aff_inv->offset, 0))
 	{
-	  if (maybe_ne (aff_inv->offset, 0))
-	    {
-	      parts.offset = wide_int_to_tree (sizetype, aff_inv->offset);
-	      /* Addressing mode "base + index [<< scale] + offset".  */
-	      if (!valid_mem_ref_p (mem_mode, as, &parts, code))
-		parts.offset = NULL_TREE;
-	      else
-		aff_inv->offset = 0;
-	    }
-
-	  move_fixed_address_to_symbol (&parts, aff_inv);
-	  /* Base is fixed address and is moved to symbol part.  */
-	  if (parts.symbol != NULL_TREE && aff_combination_zero_p (aff_inv))
-	    parts.base = NULL_TREE;
-
-	  /* Addressing mode "symbol + base + index [<< scale] [+ offset]".  */
-	  if (parts.symbol != NULL_TREE
-	      && !valid_mem_ref_p (mem_mode, as, &parts, code))
-	    {
-	      aff_combination_add_elt (aff_inv, parts.symbol, 1);
-	      parts.symbol = NULL_TREE;
-	      /* Reset SIMPLE_INV since symbol address needs to be computed
-		 outside of address expression in this case.  */
-	      simple_inv = false;
-	      /* Symbol part is moved back to base part, it can't be NULL.  */
-	      parts.base = integer_one_node;
-	    }
+	  parts.offset = wide_int_to_tree (sizetype, aff_inv->offset);
+	  /* Addressing mode "base + index [<< scale] + offset".  */
+	  if (!valid_mem_ref_p (mem_mode, as, &parts, code))
+	    parts.offset = NULL_TREE;
+	  else
+	    aff_inv->offset = 0;
 	}
-      else
-	parts.index = NULL_TREE;
+
+      move_fixed_address_to_symbol (&parts, aff_inv);
+      /* Base is fixed address and is moved to symbol part.  */
+      if (parts.symbol != NULL_TREE && aff_combination_zero_p (aff_inv))
+    parts.base = NULL_TREE;
+
+      /* Addressing mode "symbol + base + index [<< scale] [+ offset]".  */
+      if (parts.symbol != NULL_TREE
+          && !valid_mem_ref_p (mem_mode, as, &parts, code))
+	{
+	  aff_combination_add_elt (aff_inv, parts.symbol, 1);
+	  parts.symbol = NULL_TREE;
+	  /* Reset SIMPLE_INV since symbol address needs to be computed
+ outside of address expression in this case.  */
+	  simple_inv = false;
+	 /* Symbol part is moved back to base part, it can't be NULL.  */
+	  parts.base = integer_one_node;
+	}
     }
   else
     {
@@ -4799,14 +4798,12 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
 
 	  if (stmt_after_increment (data->current_loop, cand, use->stmt))
 	    ainc_offset += ainc_step;
-	  cost = get_address_cost_ainc (ainc_step, ainc_offset,
+	  autoinc_cost = get_address_cost_ainc (ainc_step, ainc_offset,
 					addr_mode, mem_mode, as, speed);
-	  if (!cost.infinite_cost_p ())
-	    {
-	      *can_autoinc = true;
-	      return cost;
-	    }
-	  cost = no_cost;
+	  if (!autoinc_cost.infinite_cost_p ())
+	    *can_autoinc = true;
+	  else
+	    autoinc_cost = no_cost;
 	}
       if (!aff_combination_zero_p (aff_inv))
 	{
@@ -4852,9 +4849,12 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
   cost += var_cost;
   addr = addr_for_mem_ref (&parts, as, false);
   gcc_assert (memory_address_addr_space_p (mem_mode, addr, as));
-  cost += address_cost (addr, mem_mode, as, speed);
+  acost += address_cost (addr, mem_mode, as, speed);
 
   if (parts.symbol != NULL_TREE)
+    cost.complexity += 1;
+  /* var_present */
+  else if (!aff_combination_const_p (aff_inv))
     cost.complexity += 1;
   /* Don't increase the complexity of adding a scaled index if it's
      the only kind of index that the target allows.  */
@@ -4865,6 +4865,7 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
   if (parts.offset != NULL_TREE && !integer_zerop (parts.offset))
     cost.complexity += 1;
 
+  cost += (can_autoinc && *can_autoinc) ? autoinc_cost : acost;
   return cost;
 }
 
