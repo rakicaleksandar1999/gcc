@@ -319,6 +319,8 @@
 ;
 ; NOCOND means that the instruction does not use or alter the condition
 ;   codes but can be converted into a conditionally exectuted instruction.
+;   Given that NOCOND is the default for most instructions if omitted,
+;   the attribute predicable must be set to yes as well.
 
 (define_attr "conds" "use,set,clob,unconditional,nocond"
 	(if_then_else
@@ -5009,7 +5011,7 @@
 
 (define_insn "unaligned_loadsi"
   [(set (match_operand:SI 0 "s_register_operand" "=l,l,r")
-	(unspec:SI [(match_operand:SI 1 "memory_operand" "m,Uw,m")]
+	(unspec:SI [(match_operand:SI 1 "mem_and_no_t1_wback_op" "Uw,Uw,m")]
 		   UNSPEC_UNALIGNED_LOAD))]
   "unaligned_access"
   "@
@@ -5039,7 +5041,7 @@
 (define_insn "unaligned_loadhiu"
   [(set (match_operand:SI 0 "s_register_operand" "=l,l,r")
 	(zero_extend:SI
-	  (unspec:HI [(match_operand:HI 1 "memory_operand" "m,Uw,m")]
+	  (unspec:HI [(match_operand:HI 1 "mem_and_no_t1_wback_op" "Uw,Uw,m")]
 		     UNSPEC_UNALIGNED_LOAD)))]
   "unaligned_access"
   "@
@@ -5064,7 +5066,7 @@
    (set_attr "type" "store_8")])
 
 (define_insn "unaligned_storesi"
-  [(set (match_operand:SI 0 "memory_operand" "=m,Uw,m")
+  [(set (match_operand:SI 0 "mem_and_no_t1_wback_op" "=Uw,Uw,m")
 	(unspec:SI [(match_operand:SI 1 "s_register_operand" "l,l,r")]
 		   UNSPEC_UNALIGNED_STORE))]
   "unaligned_access"
@@ -5079,7 +5081,7 @@
    (set_attr "type" "store_4")])
 
 (define_insn "unaligned_storehi"
-  [(set (match_operand:HI 0 "memory_operand" "=m,Uw,m")
+  [(set (match_operand:HI 0 "mem_and_no_t1_wback_op" "=Uw,Uw,m")
 	(unspec:HI [(match_operand:HI 1 "s_register_operand" "l,l,r")]
 		   UNSPEC_UNALIGNED_STORE))]
   "unaligned_access"
@@ -12559,6 +12561,7 @@
   revsh%?\t%0, %1"
   [(set_attr "arch" "t1,t2,32")
    (set_attr "length" "2,2,4")
+   (set_attr "predicable" "no,yes,yes")
    (set_attr "type" "rev")]
 )
 
@@ -12572,6 +12575,7 @@
    rev16%?\t%0, %1"
   [(set_attr "arch" "t1,t2,32")
    (set_attr "length" "2,2,4")
+   (set_attr "predicable" "no,yes,yes")
    (set_attr "type" "rev")]
 )
 
@@ -12596,6 +12600,7 @@
    rev16%?\t%0, %1"
   [(set_attr "arch" "t1,t2,32")
    (set_attr "length" "2,2,4")
+   (set_attr "predicable" "no,yes,yes")
    (set_attr "type" "rev")]
 )
 
@@ -12616,6 +12621,7 @@
    rev16%?\t%0, %1"
   [(set_attr "arch" "t1,t2,32")
    (set_attr "length" "2,2,4")
+   (set_attr "predicable" "no,yes,yes")
    (set_attr "type" "rev")]
 )
 
@@ -12639,6 +12645,72 @@
 	(bswap:HI (match_operand:HI 1 "s_register_operand")))]
 "arm_arch6"
 ""
+)
+
+;; Implement zero_extract using uxtb/uxth instruction with 
+;; the ror #N qualifier when applicable.
+
+(define_insn "*arm_zeroextractsi2_8_8"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(zero_extract:SI (match_operand:SI 1 "s_register_operand" "r")
+			 (const_int 8) (const_int 8)))]
+  "TARGET_ARM && arm_arch6"
+  "uxtb%?\\t%0, %1, ror #8"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "extend")]
+)
+
+(define_insn "*arm_zeroextractsi2_8_16"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(zero_extract:SI (match_operand:SI 1 "s_register_operand" "r")
+			 (const_int 8) (const_int 16)))]
+  "TARGET_ARM && arm_arch6"
+  "uxtb%?\\t%0, %1, ror #16"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "extend")]
+)
+
+(define_insn "*arm_zeroextractsi2_16_8"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(zero_extract:SI (match_operand:SI 1 "s_register_operand" "r")
+			 (const_int 16) (const_int 8)))]
+  "TARGET_ARM && arm_arch6"
+  "uxth%?\\t%0, %1, ror #8"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "extend")]
+)
+
+;; Implement sign_extract using sxtb/sxth instruction with 
+;; the ror #N qualifier when applicable.
+
+(define_insn "*arm_signextractsi2_8_8"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(sign_extract:SI (match_operand:SI 1 "s_register_operand" "r")
+			 (const_int 8) (const_int 8)))]
+  "TARGET_ARM && arm_arch6"
+  "sxtb%?\\t%0, %1, ror #8"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "extend")]
+)
+
+(define_insn "*arm_signextractsi2_8_16"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(sign_extract:SI (match_operand:SI 1 "s_register_operand" "r")
+			 (const_int 8) (const_int 16)))]
+  "TARGET_ARM && arm_arch6"
+  "sxtb%?\\t%0, %1, ror #16"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "extend")]
+)
+
+(define_insn "*arm_signextractsi2_16_8"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(sign_extract:SI (match_operand:SI 1 "s_register_operand" "r")
+			 (const_int 16) (const_int 8)))]
+  "TARGET_ARM && arm_arch6"
+  "sxth%?\\t%0, %1, ror #8"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "extend")]
 )
 
 ;; Patterns for LDRD/STRD in Thumb2 mode

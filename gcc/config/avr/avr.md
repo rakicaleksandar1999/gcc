@@ -31,7 +31,7 @@
 ;;  j  Branch condition.
 ;;  k  Reverse branch condition.
 ;;..m..Constant Direct Data memory address.
-;;  i  Print the SFR address quivalent of a CONST_INT or a CONST_INT
+;;  i  Print the SFR address equivalent of a CONST_INT or a CONST_INT
 ;;     RAM address.  The resulting address is suitable to be used in IN/OUT.
 ;;  o  Displacement for (mem (plus (reg) (const_int))) operands.
 ;;  p  POST_INC or PRE_DEC address as a pointer (X, Y, Z)
@@ -161,7 +161,7 @@
 ;; Otherwise do special processing depending on the attribute.
 
 (define_attr "adjust_len"
-  "out_bitop, plus, addto_sp, sext, extr, extr_not,
+  "out_bitop, plus, addto_sp, sext, extr, extr_not, plus_ext,
    tsthi, tstpsi, tstsi, compare, compare64, call,
    mov8, mov16, mov24, mov32, reload_in16, reload_in24, reload_in32,
    ufract, sfract, round,
@@ -170,7 +170,7 @@
    ashlhi, ashrhi, lshrhi,
    ashlsi, ashrsi, lshrsi,
    ashlpsi, ashrpsi, lshrpsi,
-   insert_bits, insv_notbit,
+   insert_bits, insv_notbit, insv,
    add_set_ZN, cmp_uext, cmp_sext,
    no"
   (const_string "no"))
@@ -292,6 +292,8 @@
 (define_mode_iterator SPLIT34 [SI SF PSI
                                SQ USQ SA USA])
 
+(define_mode_iterator SFDF [SF DF])
+
 ;; Where the most significant bit is located.
 (define_mode_attr MSB  [(QI "7") (QQ "7") (UQQ "7")
                         (HI "15") (HQ "15") (UHQ "15") (HA "15") (UHA "15")
@@ -311,6 +313,7 @@
 (define_code_iterator any_extract [sign_extract zero_extract])
 (define_code_iterator any_shiftrt [lshiftrt ashiftrt])
 (define_code_iterator any_shift   [lshiftrt ashiftrt ashift])
+(define_code_iterator any_lshift  [lshiftrt ashift]) ; logic shift
 
 (define_code_iterator piaop [plus ior and])
 (define_code_iterator bitop [xor ior and])
@@ -475,7 +478,7 @@
         //                  (reg:HI 28)))
         //    (set (mem:HI (post_dec:HI (reg:HI 32 SP))
         //         (reg:HI **)))
- 
+
         emit_insn (gen_pushhi1_insn (operands[0]));
         DONE;
       }
@@ -540,7 +543,7 @@
   "#"
   "&& reload_completed"
   [(parallel [(set (reg:MOVMODE 22)
-                    (match_dup 0))
+                   (match_dup 0))
               (clobber (reg:CC REG_CC))])]
   ""
   [(set_attr "isa" "rjmp,jmp")])
@@ -554,7 +557,7 @@
    && REG_Z == REGNO (XEXP (operands[0], 0))
    && reload_completed"
   {
-    operands[0] = GEN_INT (GET_MODE_SIZE (<MODE>mode));
+    operands[0] = GEN_INT (<SIZE>);
     return "%~call __load_%0";
   }
   [(set_attr "length" "1,2")
@@ -576,7 +579,7 @@
   [(clobber (const_int 0))]
   {
     // Split away the high part of the address.  GCC's register allocator
-    // in not able to allocate segment registers and reload the resulting
+    // is not able to allocate segment registers and reload the resulting
     // expressions.  Notice that no address register can hold a PSImode.
 
     rtx addr = XEXP (operands[1], 0);
@@ -614,14 +617,13 @@
     rtx reg_z = gen_rtx_REG (HImode, REG_Z);
     rtx addr_hi8 = simplify_gen_subreg (QImode, addr, PSImode, 2);
     addr_space_t as = MEM_ADDR_SPACE (operands[1]);
-    rtx_insn *insn;
 
     // Split the address to R21:Z
     emit_move_insn (reg_z, simplify_gen_subreg (HImode, addr, PSImode, 0));
     emit_move_insn (gen_rtx_REG (QImode, 21), addr_hi8);
 
     // Load with code from libgcc.
-    insn = emit_insn (gen_xload_<mode>_libgcc ());
+    rtx_insn *insn = emit_insn (gen_xload_<mode>_libgcc ());
     set_mem_addr_space (SET_SRC (single_set (insn)), as);
 
     // Move to destination.
@@ -678,7 +680,7 @@
   "avr_xload_libgcc_p (<MODE>mode)
    && reload_completed"
   {
-    rtx x_bytes = GEN_INT (GET_MODE_SIZE (<MODE>mode));
+    rtx x_bytes = GEN_INT (<SIZE>);
 
     output_asm_insn ("%~call __xload_%0", &x_bytes);
     return "";
@@ -734,12 +736,26 @@
         if (!REG_P (addr))
           src = replace_equiv_address (src, copy_to_mode_reg (PSImode, addr));
 
+        rtx dest2 = reg_overlap_mentioned_p (dest, lpm_addr_reg_rtx)
+          ? gen_reg_rtx (<MODE>mode)
+          : dest;
+
         if (!avr_xload_libgcc_p (<MODE>mode))
           // No <mode> here because gen_xload8<mode>_A only iterates over ALL1.
           // insn-emit does not depend on the mode, it's all about operands.
-          emit_insn (gen_xload8qi_A (dest, src));
+          emit_insn (gen_xload8qi_A (dest2, src));
         else
-          emit_insn (gen_xload<mode>_A (dest, src));
+          {
+            rtx reg_22 = gen_rtx_REG (<MODE>mode, REG_22);
+            if (reg_overlap_mentioned_p (dest2, reg_22)
+                || reg_overlap_mentioned_p (dest2, all_regs_rtx[REG_21]))
+              dest2 = gen_reg_rtx (<MODE>mode);
+
+            emit_insn (gen_xload<mode>_A (dest2, src));
+          }
+
+        if (dest2 != dest)
+          emit_move_insn (dest, dest2);
 
         DONE;
       }
@@ -932,6 +948,55 @@
     operands[5] = gen_rtx_REG (HImode, REGNO (operands[3]));
   })
 
+
+;; Register alloc may expand a 3-operand arithmetic X = Y o CST as
+;;    X = CST
+;;    X o= Y
+;; where it may be better to instead:
+;;    X = Y
+;;    X o= CST
+;; because 1) the first insn may use MOVW for "X = Y", and 2) the
+;; operation may be more efficient when performed with a constant,
+;; for example when ADIW or SBIW can be used, or some bytes of
+;; the constant are 0x00 or 0xff.
+(define_peephole2
+  [(parallel [(set (match_operand:HISI 0 "d_register_operand")
+                   (match_operand:HISI 1 "const_int_operand"))
+              (clobber (reg:CC REG_CC))])
+   (parallel [(set (match_dup 0)
+                   (piaop:HISI (match_dup 0)
+                               (match_operand:HISI 2 "register_operand")))
+              (clobber (scratch:QI))
+              (clobber (reg:CC REG_CC))])]
+  "! reg_overlap_mentioned_p (operands[0], operands[2])"
+  [(parallel [(set (match_dup 0)
+                   (match_dup 2))
+              (clobber (reg:CC REG_CC))])
+   (parallel [(set (match_dup 0)
+                   (piaop:HISI (match_dup 0)
+                               (match_dup 1)))
+              (clobber (scratch:QI))
+              (clobber (reg:CC REG_CC))])])
+
+;; Same, but just for plus:HI without a scratch:QI.
+(define_peephole2
+  [(parallel [(set (match_operand:HI 0 "d_register_operand")
+                   (match_operand:HI 1 "const_int_operand"))
+              (clobber (reg:CC REG_CC))])
+   (parallel [(set (match_dup 0)
+                   (plus:HI (match_dup 0)
+                            (match_operand:HI 2 "register_operand")))
+              (clobber (reg:CC REG_CC))])]
+  "! reg_overlap_mentioned_p (operands[0], operands[2])"
+  [(parallel [(set (match_dup 0)
+                   (match_dup 2))
+              (clobber (reg:CC REG_CC))])
+   (parallel [(set (match_dup 0)
+                   (plus:HI (match_dup 0)
+                            (match_dup 1)))
+              (clobber (reg:CC REG_CC))])])
+
+
 ;; For LPM loads from AS1 we split
 ;;    R = *Z
 ;; to
@@ -959,7 +1024,7 @@
     operands[2] = replace_equiv_address (operands[1],
                                          gen_rtx_POST_INC (Pmode, addr));
     operands[3] = addr;
-    operands[4] = gen_int_mode (-GET_MODE_SIZE (<MODE>mode), HImode);
+    operands[4] = gen_int_mode (-<SIZE>, HImode);
   })
 
 
@@ -971,8 +1036,7 @@
   [(parallel [(set (match_operand:MOVMODE 0 "nonimmediate_operand")
                    (match_operand:MOVMODE 1 "general_operand"))
               (clobber (reg:CC REG_CC))])]
-  "AVR_TINY
-   && reload_completed
+  "reload_completed
    && avr_fuse_add > 0
    // Only split this for .split2 when we are before
    // pass .avr-fuse-add (which runs after proep).
@@ -1532,34 +1596,6 @@
   "add %A0,%2\;adc %B0,__zero_reg__"
   [(set_attr "length" "2")])
 
-(define_insn_and_split "*addhi3.sign_extend1_split"
-  [(set (match_operand:HI 0 "register_operand"                         "=r")
-        (plus:HI (sign_extend:HI (match_operand:QI 1 "register_operand" "r"))
-                 (match_operand:HI 2 "register_operand"                 "0")))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel
-      [(set (match_dup 0)
-            (plus:HI
-              (sign_extend:HI (match_dup 1))
-              (match_dup 2)))
-       (clobber (reg:CC REG_CC))])])
-
-
-(define_insn "*addhi3.sign_extend1"
-  [(set (match_operand:HI 0 "register_operand"                         "=r")
-        (plus:HI (sign_extend:HI (match_operand:QI 1 "register_operand" "r"))
-                 (match_operand:HI 2 "register_operand"                 "0")))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  {
-    return reg_overlap_mentioned_p (operands[0], operands[1])
-      ? "mov __tmp_reg__,%1\;add %A0,%1\;adc %B0,__zero_reg__\;sbrc __tmp_reg__,7\;dec %B0"
-      : "add %A0,%1\;adc %B0,__zero_reg__\;sbrc %1,7\;dec %B0";
-  }
-  [(set_attr "length" "5")])
-
 (define_insn_and_split "*addhi3_zero_extend.const_split"
   [(set (match_operand:HI 0 "register_operand"                         "=d")
         (plus:HI (zero_extend:HI (match_operand:QI 1 "register_operand" "0"))
@@ -1581,9 +1617,56 @@
   "subi %A0,%n2\;sbc %B0,%B0"
   [(set_attr "length" "2")])
 
+;; PR90616: Adding symbols that are aligned to 256 bytes can
+;; save up to two instructions.
+(define_insn "*aligned_add_symbol"
+  [(set (match_operand:HI 0 "register_operand"                         "=d")
+        (plus:HI (zero_extend:HI (match_operand:QI 1 "register_operand" "r"))
+                 (match_operand:HI 2 "const_0mod256_operand"            "Cp8")))]
+  ""
+  {
+    return REGNO (operands[0]) == REGNO (operands[1])
+      ? "ldi %B0,hi8(%2)"
+      : "mov %A0,%1\;ldi %B0,hi8(%2)";
+  }
+  [(set (attr "length")
+        (symbol_ref ("2 - (REGNO (operands[0]) == REGNO (operands[1]))")))])
+
+;; Occurs when computing offsets into 16-bit arrays.
+;; Saves up to 2 instructions.
+(define_insn_and_split "*addhi3_zero_extend.ashift1.split"
+  [(set (match_operand:HI 0 "register_operand"                                    "=r")
+        (plus:HI (ashift:HI (zero_extend:HI (match_operand:QI 1 "register_operand" "r"))
+                            (const_int 1))
+                 (match_operand:HI 2 "register_operand"                            "0")))]
+  ""
+  "#"
+  "&& reload_completed"
+  [(parallel [(set (match_dup 0)
+                   (plus:HI (ashift:HI (zero_extend:HI (match_dup 1))
+                                       (const_int 1))
+                            (match_dup 2)))
+              (clobber (reg:CC REG_CC))])])
+
+(define_insn "*addhi3_zero_extend.ashift1"
+  [(set (match_operand:HI 0 "register_operand"                                    "=r")
+        (plus:HI (ashift:HI (zero_extend:HI (match_operand:QI 1 "register_operand" "r"))
+                            (const_int 1))
+                 (match_operand:HI 2 "register_operand"                            "0")))
+   (clobber (reg:CC REG_CC))]
+  "reload_completed"
+  {
+    return reg_overlap_mentioned_p (operands[1], operands[0])
+      ? "mov __tmp_reg__,%1\;add %A0,__tmp_reg__\;adc %B0,__zero_reg__\;add %A0,__tmp_reg__\;adc %B0,__zero_reg__"
+      : "add %A0,%1\;adc %B0,__zero_reg__\;add %A0,%1\;adc %B0,__zero_reg__";
+  }
+  [(set (attr "length")
+        (symbol_ref ("4 + reg_overlap_mentioned_p (operands[1], operands[0])")))])
+
+
 (define_insn_and_split "*usum_widenqihi3_split"
   [(set (match_operand:HI 0 "register_operand"                          "=r")
-        (plus:HI (zero_extend:HI (match_operand:QI 1 "register_operand"  "0"))
+        (plus:HI (zero_extend:HI (match_operand:QI 1 "register_operand" "%0"))
                  (zero_extend:HI (match_operand:QI 2 "register_operand"  "r"))))]
   ""
   "#"
@@ -1596,7 +1679,7 @@
 
 (define_insn "*usum_widenqihi3"
   [(set (match_operand:HI 0 "register_operand"                          "=r")
-        (plus:HI (zero_extend:HI (match_operand:QI 1 "register_operand"  "0"))
+        (plus:HI (zero_extend:HI (match_operand:QI 1 "register_operand" "%0"))
                  (zero_extend:HI (match_operand:QI 2 "register_operand"  "r"))))
    (clobber (reg:CC REG_CC))]
   "reload_completed"
@@ -1623,7 +1706,7 @@
   "reload_completed"
   "sub %A0,%2\;sbc %B0,%B0"
   [(set_attr "length" "2")])
-    
+
 (define_insn_and_split "*addhi3_sp"
   [(set (match_operand:HI 1 "stack_register_operand"           "=q")
         (plus:HI (match_operand:HI 2 "stack_register_operand"   "q")
@@ -1644,9 +1727,9 @@
   [(set_attr "length" "6")
    (set_attr "adjust_len" "addto_sp")])
 
-;; "*addhi3"
-;; "*addhq3" "*adduhq3"
-;; "*addha3" "*adduha3"
+;; "*addhi3_split"
+;; "*addhq3_split"  "*adduhq3_split"
+;; "*addha3_split"  "*adduha3_split"
 (define_insn_and_split "*add<mode>3_split"
   [(set (match_operand:ALL2 0 "register_operand"                   "=??r,d,!w    ,d")
         (plus:ALL2 (match_operand:ALL2 1 "register_operand"          "%0,0,0     ,0")
@@ -1661,6 +1744,9 @@
   ""
   [(set_attr "isa" "*,*,adiw,*")])
 
+;; "*addhi3"
+;; "*addhq3"  "*adduhq3"
+;; "*addha3"  "*adduha3"
 (define_insn "*add<mode>3"
   [(set (match_operand:ALL2 0 "register_operand"                   "=??r,d,!w    ,d")
         (plus:ALL2 (match_operand:ALL2 1 "register_operand"          "%0,0,0     ,0")
@@ -1732,6 +1818,9 @@
               (clobber (match_dup 3))
               (clobber (reg:CC REG_CC))])])
 
+;; "*addhi3_clobber"
+;; "*addhq3_clobber"  "*adduhq3_clobber"
+;; "*addha3_clobber"  "*adduha3_clobber"
 (define_insn "*add<mode>3_clobber"
   [(set (match_operand:ALL2 0 "register_operand"            "=!w    ,d    ,r")
         (plus:ALL2 (match_operand:ALL2 1 "register_operand"  "%0    ,0    ,0")
@@ -1776,110 +1865,88 @@
   [(set_attr "length" "4")
    (set_attr "adjust_len" "plus")])
 
-(define_insn_and_split "*addpsi3_zero_extend.qi_split"
-  [(set (match_operand:PSI 0 "register_operand"                          "=r")
-        (plus:PSI (zero_extend:PSI (match_operand:QI 1 "register_operand" "r"))
-                  (match_operand:PSI 2 "register_operand"                 "0")))]
-  ""
+
+;;                                  "*addhi3.sign_extend.qi_split"
+;; "*addpsi3.sign_extend.qi_split"  "*addpsi3.sign_extend.qi_split"
+;; "*addpsi3.sign_extend.hi_split"  "*addpsi3.sign_extend.hi_split"
+;; "*addsi3.sign_extend.qi_split"   "*addsi3.sign_extend.qi_split"
+;; "*addsi3.sign_extend.hi_split"   "*addsi3.sign_extend.hi_split"
+;; "*addsi3.sign_extend.psi_split"  "*addsi3.sign_extend.psi_split"
+;; The zero_extend:HI(QI) case is treated in an own insn as it can
+;; more than just "r,r,0".
+(define_insn_and_split "*add<HISI:mode>3.<code>.<QIPSI:mode>_split"
+  [(set (match_operand:HISI 0 "register_operand"                             "=r")
+        (plus:HISI (any_extend:HISI (match_operand:QIPSI 1 "register_operand" "r"))
+                   (match_operand:HISI 2 "register_operand"                   "0")))]
+  "<HISI:SIZE> > <QIPSI:SIZE>
+   && (<HISI:SIZE> > 2 || <CODE> == SIGN_EXTEND)"
   "#"
   "&& reload_completed"
   [(parallel [(set (match_dup 0)
-                   (plus:PSI (zero_extend:PSI (match_dup 1))
-                             (match_dup 2)))
+                   (plus:HISI (any_extend:HISI (match_dup 1))
+                              (match_dup 2)))
               (clobber (reg:CC REG_CC))])])
 
-(define_insn "*addpsi3_zero_extend.qi"
-  [(set (match_operand:PSI 0 "register_operand"                          "=r")
-        (plus:PSI (zero_extend:PSI (match_operand:QI 1 "register_operand" "r"))
-                  (match_operand:PSI 2 "register_operand"                 "0")))
+;;                            "*addhi3.sign_extend.qi"
+;; "*addpsi3.sign_extend.qi"  "*addpsi3.sign_extend.qi"
+;; "*addpsi3.sign_extend.hi"  "*addpsi3.sign_extend.hi"
+;; "*addsi3.sign_extend.qi"   "*addsi3.sign_extend.qi"
+;; "*addsi3.sign_extend.hi"   "*addsi3.sign_extend.hi"
+;; "*addsi3.sign_extend.psi"  "*addsi3.sign_extend.psi"
+(define_insn "*add<HISI:mode>3.<code>.<QIPSI:mode>"
+  [(set (match_operand:HISI 0 "register_operand"                             "=r")
+        (plus:HISI (any_extend:HISI (match_operand:QIPSI 1 "register_operand" "r"))
+                   (match_operand:HISI 2 "register_operand"                   "0")))
    (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "add %A0,%A1\;adc %B0,__zero_reg__\;adc %C0,__zero_reg__"
-  [(set_attr "length" "3")])
+  "reload_completed
+   && <HISI:SIZE> > <QIPSI:SIZE>
+   && (<HISI:SIZE> > 2 || <CODE> == SIGN_EXTEND)"
+  {
+    return avr_out_plus_ext (insn, operands, nullptr);
+  }
+  [(set (attr "length")
+        (symbol_ref "<HISI:SIZE> + 3 * (<CODE> == SIGN_EXTEND)"))
+   (set_attr "adjust_len" "plus_ext")])
 
-(define_insn_and_split "*addpsi3_zero_extend.hi_split"
-  [(set (match_operand:PSI 0 "register_operand"                          "=r")
-        (plus:PSI (zero_extend:PSI (match_operand:HI 1 "register_operand" "r"))
-                  (match_operand:PSI 2 "register_operand"                 "0")))]
-  ""
+
+;; "*subhi3.zero_extend.qi_split"   "*subhi3.sign_extend.qi_split"
+;; "*subpsi3.zero_extend.qi_split"  "*subpsi3.sign_extend.qi_split"
+;; "*subpsi3.zero_extend.hi_split"  "*subpsi3.sign_extend.hi_split"
+;; "*subsi3.zero_extend.qi_split"   "*subsi3.sign_extend.qi_split"
+;; "*subsi3.zero_extend.hi_split"   "*subsi3.sign_extend.hi_split"
+;; "*subsi3.zero_extend.psi_split"  "*subsi3.sign_extend.psi_split"
+(define_insn_and_split "*sub<HISI:mode>3.<code>.<QIPSI:mode>_split"
+  [(set (match_operand:HISI 0 "register_operand"                              "=r")
+        (minus:HISI (match_operand:HISI 1 "register_operand"                   "0")
+                    (any_extend:HISI (match_operand:QIPSI 2 "register_operand" "r"))))]
+  "<HISI:SIZE> > <QIPSI:SIZE>"
   "#"
   "&& reload_completed"
   [(parallel [(set (match_dup 0)
-                   (plus:PSI (zero_extend:PSI (match_dup 1))
-                             (match_dup 2)))
+                   (minus:HISI (match_dup 1)
+                               (any_extend:HISI (match_dup 2))))
               (clobber (reg:CC REG_CC))])])
 
-(define_insn "*addpsi3_zero_extend.hi"
-  [(set (match_operand:PSI 0 "register_operand"                          "=r")
-        (plus:PSI (zero_extend:PSI (match_operand:HI 1 "register_operand" "r"))
-                  (match_operand:PSI 2 "register_operand"                 "0")))
+;; "*subhi3.zero_extend.qi"   "*subhi3.sign_extend.qi"
+;; "*subpsi3.zero_extend.qi"  "*subpsi3.sign_extend.qi"
+;; "*subpsi3.zero_extend.hi"  "*subpsi3.sign_extend.hi"
+;; "*subsi3.zero_extend.qi"   "*subsi3.sign_extend.qi"
+;; "*subsi3.zero_extend.hi"   "*subsi3.sign_extend.hi"
+;; "*subsi3.zero_extend.psi"  "*subsi3.sign_extend.psi"
+(define_insn "*sub<HISI:mode>3.<code>.<QIPSI:mode>"
+  [(set (match_operand:HISI 0 "register_operand"                              "=r")
+        (minus:HISI (match_operand:HISI 1 "register_operand"                   "0")
+                    (any_extend:HISI (match_operand:QIPSI 2 "register_operand" "r"))))
    (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "add %A0,%A1\;adc %B0,%B1\;adc %C0,__zero_reg__"
-  [(set_attr "length" "3")])
+  "reload_completed
+   && <HISI:SIZE> > <QIPSI:SIZE>"
+  {
+    return avr_out_plus_ext (insn, operands, nullptr);
+  }
+  [(set (attr "length")
+        (symbol_ref "<HISI:SIZE> + 3 * (<CODE> == SIGN_EXTEND)"))
+   (set_attr "adjust_len" "plus_ext")])
 
-(define_insn_and_split "*addpsi3_sign_extend.hi_split"
-  [(set (match_operand:PSI 0 "register_operand"                          "=r")
-        (plus:PSI (sign_extend:PSI (match_operand:HI 1 "register_operand" "r"))
-                  (match_operand:PSI 2 "register_operand"                 "0")))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                   (plus:PSI (sign_extend:PSI (match_dup 1))
-                             (match_dup 2)))
-              (clobber (reg:CC REG_CC))])])
-
-(define_insn "*addpsi3_sign_extend.hi"
-  [(set (match_operand:PSI 0 "register_operand"                          "=r")
-        (plus:PSI (sign_extend:PSI (match_operand:HI 1 "register_operand" "r"))
-                  (match_operand:PSI 2 "register_operand"                 "0")))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "add %A0,%1\;adc %B0,%B1\;adc %C0,__zero_reg__\;sbrc %B1,7\;dec %C0"
-  [(set_attr "length" "5")])
-
-(define_insn_and_split "*addsi3_zero_extend_split"
-  [(set (match_operand:SI 0 "register_operand"                         "=r")
-        (plus:SI (zero_extend:SI (match_operand:QI 1 "register_operand" "r"))
-                 (match_operand:SI 2 "register_operand"                 "0")))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                   (plus:SI (zero_extend:SI (match_dup 1))
-                            (match_dup 2)))
-              (clobber (reg:CC REG_CC))])])
-
-(define_insn "*addsi3_zero_extend"
-  [(set (match_operand:SI 0 "register_operand"                         "=r")
-        (plus:SI (zero_extend:SI (match_operand:QI 1 "register_operand" "r"))
-                 (match_operand:SI 2 "register_operand"                 "0")))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "add %A0,%1\;adc %B0,__zero_reg__\;adc %C0,__zero_reg__\;adc %D0,__zero_reg__"
-  [(set_attr "length" "4")])
-
-(define_insn_and_split "*addsi3_zero_extend.hi_split"
-  [(set (match_operand:SI 0 "register_operand"                         "=r")
-        (plus:SI (zero_extend:SI (match_operand:HI 1 "register_operand" "r"))
-                 (match_operand:SI 2 "register_operand"                 "0")))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                   (plus:SI (zero_extend:SI (match_dup 1))
-                            (match_dup 2)))
-              (clobber (reg:CC REG_CC))])])
-
-(define_insn "*addsi3_zero_extend.hi"
-  [(set (match_operand:SI 0 "register_operand"                         "=r")
-        (plus:SI (zero_extend:SI (match_operand:HI 1 "register_operand" "r"))
-                 (match_operand:SI 2 "register_operand"                 "0")))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "add %A0,%1\;adc %B0,%B1\;adc %C0,__zero_reg__\;adc %D0,__zero_reg__"
-  [(set_attr "length" "4")])
 
 (define_insn_and_split "addpsi3"
   [(set (match_operand:PSI 0 "register_operand"         "=??r,d ,d,r")
@@ -1929,68 +1996,6 @@
   "sub %0,%2\;sbc %B0,%B2\;sbc %C0,%C2"
   [(set_attr "length" "3")])
 
-(define_insn_and_split "*subpsi3_zero_extend.qi_split"
-  [(set (match_operand:PSI 0 "register_operand"                           "=r")
-        (minus:PSI (match_operand:SI 1 "register_operand"                  "0")
-                   (zero_extend:PSI (match_operand:QI 2 "register_operand" "r"))))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                   (minus:PSI (match_dup 1)
-                              (zero_extend:PSI (match_dup 2))))
-              (clobber (reg:CC REG_CC))])])
-
-(define_insn "*subpsi3_zero_extend.qi"
-  [(set (match_operand:PSI 0 "register_operand"                           "=r")
-        (minus:PSI (match_operand:SI 1 "register_operand"                  "0")
-                   (zero_extend:PSI (match_operand:QI 2 "register_operand" "r"))))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "sub %A0,%2\;sbc %B0,__zero_reg__\;sbc %C0,__zero_reg__"
-  [(set_attr "length" "3")])
-
-(define_insn_and_split "*subpsi3_zero_extend.hi_split"
-  [(set (match_operand:PSI 0 "register_operand"                           "=r")
-        (minus:PSI (match_operand:PSI 1 "register_operand"                 "0")
-                   (zero_extend:PSI (match_operand:HI 2 "register_operand" "r"))))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                   (minus:PSI (match_dup 1)
-                              (zero_extend:PSI (match_dup 2))))
-              (clobber (reg:CC REG_CC))])])
-
-(define_insn "*subpsi3_zero_extend.hi"
-  [(set (match_operand:PSI 0 "register_operand"                           "=r")
-        (minus:PSI (match_operand:PSI 1 "register_operand"                 "0")
-                   (zero_extend:PSI (match_operand:HI 2 "register_operand" "r"))))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "sub %A0,%2\;sbc %B0,%B2\;sbc %C0,__zero_reg__"
-  [(set_attr "length" "3")])
-
-(define_insn_and_split "*subpsi3_sign_extend.hi_split"
-  [(set (match_operand:PSI 0 "register_operand"                           "=r")
-        (minus:PSI (match_operand:PSI 1 "register_operand"                 "0")
-                   (sign_extend:PSI (match_operand:HI 2 "register_operand" "r"))))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                   (minus:PSI (match_dup 1)
-                              (sign_extend:PSI (match_dup 2))))
-              (clobber (reg:CC REG_CC))])])
-
-(define_insn "*subpsi3_sign_extend.hi"
-  [(set (match_operand:PSI 0 "register_operand"                           "=r")
-        (minus:PSI (match_operand:PSI 1 "register_operand"                 "0")
-                   (sign_extend:PSI (match_operand:HI 2 "register_operand" "r"))))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "sub %A0,%A2\;sbc %B0,%B2\;sbc %C0,__zero_reg__\;sbrc %B2,7\;inc %C0"
-  [(set_attr "length" "5")])
 
 ;-----------------------------------------------------------------------------
 ; sub bytes
@@ -2053,52 +2058,6 @@
   }
   [(set_attr "adjust_len" "plus")])
 
-(define_insn_and_split "*subhi3_zero_extend1_split"
-  [(set (match_operand:HI 0 "register_operand"                          "=r")
-        (minus:HI (match_operand:HI 1 "register_operand"                 "0")
-                  (zero_extend:HI (match_operand:QI 2 "register_operand" "r"))))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                   (minus:HI (match_dup 1)
-                             (zero_extend:HI (match_dup 2))))
-             (clobber (reg:CC REG_CC))])])
-
-(define_insn "*subhi3_zero_extend1"
-  [(set (match_operand:HI 0 "register_operand"                          "=r")
-        (minus:HI (match_operand:HI 1 "register_operand"                 "0")
-                  (zero_extend:HI (match_operand:QI 2 "register_operand" "r"))))
-  (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "sub %A0,%2\;sbc %B0,__zero_reg__"
-  [(set_attr "length" "2")])
-
-(define_insn_and_split "*subhi3.sign_extend2_split"
-  [(set (match_operand:HI 0 "register_operand"                          "=r")
-        (minus:HI (match_operand:HI 1 "register_operand"                 "0")
-                  (sign_extend:HI (match_operand:QI 2 "register_operand" "r"))))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                  (minus:HI (match_dup 1)
-                            (sign_extend:HI (match_dup 2))))
-              (clobber (reg:CC REG_CC))])])
-
-
-(define_insn "*subhi3.sign_extend2"
-  [(set (match_operand:HI 0 "register_operand"                          "=r")
-        (minus:HI (match_operand:HI 1 "register_operand"                 "0")
-                  (sign_extend:HI (match_operand:QI 2 "register_operand" "r"))))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  {
-    return reg_overlap_mentioned_p (operands[0], operands[2])
-      ? "mov __tmp_reg__,%2\;sub %A0,%2\;sbc %B0,__zero_reg__\;sbrc __tmp_reg__,7\;inc %B0"
-      : "sub %A0,%2\;sbc %B0,__zero_reg__\;sbrc %2,7\;inc %B0";
-  }
-  [(set_attr "length" "5")])
 
 ;; "subsi3"
 ;; "subsq3" "subusq3"
@@ -2129,48 +2088,6 @@
   }
   [(set_attr "adjust_len" "plus")])
 
-(define_insn_and_split "*subsi3_zero_extend_split"
-  [(set (match_operand:SI 0 "register_operand"                          "=r")
-        (minus:SI (match_operand:SI 1 "register_operand"                 "0")
-                  (zero_extend:SI (match_operand:QI 2 "register_operand" "r"))))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                   (minus:SI (match_dup 1)
-                             (zero_extend:SI (match_dup 2))))
-              (clobber (reg:CC REG_CC))])])
-
-(define_insn "*subsi3_zero_extend"
-  [(set (match_operand:SI 0 "register_operand"                          "=r")
-        (minus:SI (match_operand:SI 1 "register_operand"                 "0")
-                  (zero_extend:SI (match_operand:QI 2 "register_operand" "r"))))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "sub %A0,%2\;sbc %B0,__zero_reg__\;sbc %C0,__zero_reg__\;sbc %D0,__zero_reg__"
-  [(set_attr "length" "4")
-   ])
-
-(define_insn_and_split "*subsi3_zero_extend.hi_split"
-  [(set (match_operand:SI 0 "register_operand"                          "=r")
-        (minus:SI (match_operand:SI 1 "register_operand"                 "0")
-                  (zero_extend:SI (match_operand:HI 2 "register_operand" "r"))))]
-  ""
-  "#"
-  "&& reload_completed"
-  [(parallel [(set (match_dup 0)
-                   (minus:SI (match_dup 1)
-                             (zero_extend:SI (match_dup 2))))
-              (clobber (reg:CC REG_CC))])])
-
-(define_insn "*subsi3_zero_extend.hi"
-  [(set (match_operand:SI 0 "register_operand"                          "=r")
-        (minus:SI (match_operand:SI 1 "register_operand"                 "0")
-                  (zero_extend:SI (match_operand:HI 2 "register_operand" "r"))))
-   (clobber (reg:CC REG_CC))]
-  "reload_completed"
-  "sub %A0,%2\;sbc %B0,%B2\;sbc %C0,__zero_reg__\;sbc %D0,__zero_reg__"
-  [(set_attr "length" "4")])
 
 ;******************************************************************************
 ; mul
@@ -2418,7 +2335,7 @@
   "&& reload_completed"
   [(parallel [(set (reg:HI 24)
                    (mult:HI (zero_extend:HI (reg:QI 22))
-                   (zero_extend:HI (reg:QI 24))))
+                            (zero_extend:HI (reg:QI 24))))
               (clobber (reg:QI 21))
               (clobber (reg:HI 22))
               (clobber (reg:CC REG_CC))])])
@@ -2802,7 +2719,7 @@
 
 ;; Special case of a += 2*b as frequently seen with accesses to int arrays.
 ;; This is shorter, faster than MUL and has lower register pressure.
-
+;; See also "*addhi3_zero_extend.ashift1".
 (define_insn_and_split "*umaddqihi4.2"
   [(set (match_operand:HI 0 "register_operand"                                  "=r")
         (plus:HI (mult:HI (zero_extend:HI (match_operand:QI 1 "register_operand" "r"))
@@ -3268,12 +3185,14 @@
            ? "mul %A1,%A1\;movw %0,r0\;mul %A1,%B1\;add %B0,r0\;add %B0,r0\;clr r1"
            : "mul %A1,%A2\;movw %0,r0\;mul %A1,%B2\;add %B0,r0\;mul %B1,%A2\;add %B0,r0\;clr r1";
   }
-  [(set_attr "length" "7")])
+  [(set (attr "length")
+        (symbol_ref ("7 - (REGNO (operands[1]) == REGNO (operands[2]))")))])
 
 (define_expand "mulhi3_call"
   [(set (reg:HI 24) (match_operand:HI 1 "register_operand" ""))
    (set (reg:HI 22) (match_operand:HI 2 "register_operand" ""))
-   (parallel [(set (reg:HI 24) (mult:HI (reg:HI 24) (reg:HI 22)))
+   (parallel [(set (reg:HI 24)
+                   (mult:HI (reg:HI 24) (reg:HI 22)))
               (clobber (reg:HI 22))
               (clobber (reg:QI 21))])
    (set (match_operand:HI 0 "register_operand" "")
@@ -3285,19 +3204,22 @@
 
 
 (define_insn_and_split "*mulhi3_call_split"
-  [(set (reg:HI 24) (mult:HI (reg:HI 24) (reg:HI 22)))
+  [(set (reg:HI 24)
+        (mult:HI (reg:HI 24) (reg:HI 22)))
    (clobber (reg:HI 22))
    (clobber (reg:QI 21))]
   "!AVR_HAVE_MUL"
   "#"
   "&& reload_completed"
-  [(parallel [(set (reg:HI 24) (mult:HI (reg:HI 24) (reg:HI 22)))
+  [(parallel [(set (reg:HI 24)
+                   (mult:HI (reg:HI 24) (reg:HI 22)))
               (clobber (reg:HI 22))
               (clobber (reg:QI 21))
               (clobber (reg:CC REG_CC))])])
 
 (define_insn "*mulhi3_call"
-  [(set (reg:HI 24) (mult:HI (reg:HI 24) (reg:HI 22)))
+  [(set (reg:HI 24)
+        (mult:HI (reg:HI 24) (reg:HI 22)))
    (clobber (reg:HI 22))
    (clobber (reg:QI 21))
    (clobber (reg:CC REG_CC))]
@@ -3462,8 +3384,8 @@
    (set (match_dup 0)
         (reg:SI 22))]
   {
-    // Do the QI -> HI extension explicitely before the multiplication.
-    // Do the HI -> SI extension implicitely and after the multiplication.
+    // Do the QI -> HI extension explicitly before the multiplication.
+    // Do the HI -> SI extension implicitly and after the multiplication.
 
     if (QImode == <MODE>mode)
       operands[1] = gen_rtx_SIGN_EXTEND (HImode, operands[1]);
@@ -3576,8 +3498,8 @@
     rtx xop1 = operands[1];
     rtx xop2 = operands[2];
 
-    // Do the QI -> HI extension explicitely before the multiplication.
-    // Do the HI -> SI extension implicitely and after the multiplication.
+    // Do the QI -> HI extension explicitly before the multiplication.
+    // Do the HI -> SI extension implicitly and after the multiplication.
 
     if (QImode == <QIHI:MODE>mode)
       xop1 = gen_rtx_fmt_e (<any_extend:CODE>, HImode, xop1);
@@ -4380,10 +4302,10 @@
   [(set_attr "length" "1,1,2")])
 
 (define_insn_and_split "andhi3"
-  [(set (match_operand:HI 0 "register_operand"       "=??r,d,d,r  ,r")
-        (and:HI (match_operand:HI 1 "register_operand" "%0,0,0,0  ,0")
-                (match_operand:HI 2 "nonmemory_operand" "r,s,n,Ca2,n")))
-   (clobber (match_scratch:QI 3                        "=X,X,X,X  ,&d"))]
+  [(set (match_operand:HI 0 "register_operand"       "=??r,d,d,r  ,r  ,r")
+        (and:HI (match_operand:HI 1 "register_operand" "%0,0,0,0  ,r  ,0")
+                (match_operand:HI 2 "nonmemory_operand" "r,s,n,Ca2,Cb2,n")))
+   (clobber (match_scratch:QI 3                        "=X,X,X,X  ,X  ,&d"))]
   ""
   "#"
   "&& reload_completed"
@@ -4394,10 +4316,10 @@
               (clobber (reg:CC REG_CC))])])
 
 (define_insn "*andhi3"
-  [(set (match_operand:HI 0 "register_operand"       "=??r,d,d,r  ,r")
-        (and:HI (match_operand:HI 1 "register_operand" "%0,0,0,0  ,0")
-                (match_operand:HI 2 "nonmemory_operand" "r,s,n,Ca2,n")))
-   (clobber (match_scratch:QI 3                        "=X,X,X,X  ,&d"))
+  [(set (match_operand:HI 0 "register_operand"       "=??r,d,d,r  ,r  ,r")
+        (and:HI (match_operand:HI 1 "register_operand" "%0,0,0,0  ,r  ,0")
+                (match_operand:HI 2 "nonmemory_operand" "r,s,n,Ca2,Cb2,n")))
+   (clobber (match_scratch:QI 3                        "=X,X,X,X  ,X  ,&d"))
    (clobber (reg:CC REG_CC))]
   "reload_completed"
   {
@@ -4405,17 +4327,19 @@
       return "and %A0,%A2\;and %B0,%B2";
     else if (which_alternative == 1)
       return "andi %A0,lo8(%2)\;andi %B0,hi8(%2)";
+    else if (which_alternative == 4)
+      return avr_out_insv (insn, operands, NULL);
 
     return avr_out_bitop (insn, operands, NULL);
   }
-  [(set_attr "length" "2,2,2,4,4")
-   (set_attr "adjust_len" "*,*,out_bitop,out_bitop,out_bitop")])
+  [(set_attr "length" "2,2,2,4,4,4")
+   (set_attr "adjust_len" "*,*,out_bitop,out_bitop,insv,out_bitop")])
 
 (define_insn_and_split "andpsi3"
-  [(set (match_operand:PSI 0 "register_operand"        "=??r,d,r  ,r")
-        (and:PSI (match_operand:PSI 1 "register_operand" "%0,0,0  ,0")
-                 (match_operand:PSI 2 "nonmemory_operand" "r,n,Ca3,n")))
-   (clobber (match_scratch:QI 3                          "=X,X,X  ,&d"))]
+  [(set (match_operand:PSI 0 "register_operand"        "=??r,d,r  ,r  ,r")
+        (and:PSI (match_operand:PSI 1 "register_operand" "%0,0,0  ,r  ,0")
+                 (match_operand:PSI 2 "nonmemory_operand" "r,n,Ca3,Cb3,n")))
+   (clobber (match_scratch:QI 3                          "=X,X,X  ,X  ,&d"))]
   ""
   "#"
   "&& reload_completed"
@@ -4426,10 +4350,10 @@
               (clobber (reg:CC REG_CC))])])
 
 (define_insn "*andpsi3"
-  [(set (match_operand:PSI 0 "register_operand"        "=??r,d,r  ,r")
-        (and:PSI (match_operand:PSI 1 "register_operand" "%0,0,0  ,0")
-                 (match_operand:PSI 2 "nonmemory_operand" "r,n,Ca3,n")))
-   (clobber (match_scratch:QI 3                          "=X,X,X  ,&d"))
+  [(set (match_operand:PSI 0 "register_operand"        "=??r,d,r  ,r  ,r")
+        (and:PSI (match_operand:PSI 1 "register_operand" "%0,0,0  ,r  ,0")
+                 (match_operand:PSI 2 "nonmemory_operand" "r,n,Ca3,Cb3,n")))
+   (clobber (match_scratch:QI 3                          "=X,X,X  ,X  ,&d"))
    (clobber (reg:CC REG_CC))]
   "reload_completed"
   {
@@ -4438,16 +4362,19 @@
              "and %B0,%B2" CR_TAB
              "and %C0,%C2";
 
+    if (which_alternative == 3)
+      return avr_out_insv (insn, operands, NULL);
+
     return avr_out_bitop (insn, operands, NULL);
   }
-  [(set_attr "length" "3,3,6,6")
-   (set_attr "adjust_len" "*,out_bitop,out_bitop,out_bitop")])
+  [(set_attr "length" "3,3,6,5,6")
+   (set_attr "adjust_len" "*,out_bitop,out_bitop,insv,out_bitop")])
 
 (define_insn_and_split "andsi3"
-  [(set (match_operand:SI 0 "register_operand"       "=??r,d,r  ,r")
-        (and:SI (match_operand:SI 1 "register_operand" "%0,0,0  ,0")
-                (match_operand:SI 2 "nonmemory_operand" "r,n,Ca4,n")))
-   (clobber (match_scratch:QI 3                        "=X,X,X  ,&d"))]
+  [(set (match_operand:SI 0 "register_operand"       "=??r,d,r  ,r  ,r")
+        (and:SI (match_operand:SI 1 "register_operand" "%0,0,0  ,r  ,0")
+                (match_operand:SI 2 "nonmemory_operand" "r,n,Ca4,Cb4,n")))
+   (clobber (match_scratch:QI 3                        "=X,X,X  ,X  ,&d"))]
   ""
   "#"
   "&& reload_completed"
@@ -4458,10 +4385,10 @@
               (clobber (reg:CC REG_CC))])])
 
 (define_insn "*andsi3"
-  [(set (match_operand:SI 0 "register_operand"       "=??r,d,r  ,r")
-        (and:SI (match_operand:SI 1 "register_operand" "%0,0,0  ,0")
-                (match_operand:SI 2 "nonmemory_operand" "r,n,Ca4,n")))
-   (clobber (match_scratch:QI 3                        "=X,X,X  ,&d"))
+  [(set (match_operand:SI 0 "register_operand"       "=??r,d,r  ,r  ,r")
+        (and:SI (match_operand:SI 1 "register_operand" "%0,0,0  ,r  ,0")
+                (match_operand:SI 2 "nonmemory_operand" "r,n,Ca4,Cb4,n")))
+   (clobber (match_scratch:QI 3                        "=X,X,X  ,X  ,&d"))
    (clobber (reg:CC REG_CC))]
   "reload_completed"
   {
@@ -4471,10 +4398,13 @@
              "and %C0,%C2" CR_TAB
              "and %D0,%D2";
 
+    if (which_alternative == 3)
+      return avr_out_insv (insn, operands, NULL);
+
     return avr_out_bitop (insn, operands, NULL);
   }
-  [(set_attr "length" "4,4,8,8")
-   (set_attr "adjust_len" "*,out_bitop,out_bitop,out_bitop")])
+  [(set_attr "length" "4,4,8,6,8")
+   (set_attr "adjust_len" "*,out_bitop,out_bitop,insv,out_bitop")])
 
 (define_peephole2 ; andi
   [(parallel [(set (match_operand:QI 0 "d_register_operand" "")
@@ -4641,10 +4571,10 @@
   [(set_attr "length" "1")])
 
 (define_insn_and_split "xorhi3"
-  [(set (match_operand:HI 0 "register_operand"       "=??r,r  ,r")
-        (xor:HI (match_operand:HI 1 "register_operand" "%0,0  ,0")
-                (match_operand:HI 2 "nonmemory_operand" "r,Cx2,n")))
-   (clobber (match_scratch:QI 3                        "=X,X  ,&d"))]
+  [(set (match_operand:HI 0 "register_operand"       "=??r,r  ,d  ,r")
+        (xor:HI (match_operand:HI 1 "register_operand" "%0,0  ,0  ,0")
+                (match_operand:HI 2 "nonmemory_operand" "r,Cx2,CX2,n")))
+   (clobber (match_scratch:QI 3                        "=X,X  ,X  ,&d"))]
   ""
   "#"
   "&& reload_completed"
@@ -4655,10 +4585,10 @@
               (clobber (reg:CC REG_CC))])])
 
 (define_insn "*xorhi3"
-  [(set (match_operand:HI 0 "register_operand"       "=??r,r  ,r")
-        (xor:HI (match_operand:HI 1 "register_operand" "%0,0  ,0")
-                (match_operand:HI 2 "nonmemory_operand" "r,Cx2,n")))
-   (clobber (match_scratch:QI 3                        "=X,X  ,&d"))
+  [(set (match_operand:HI 0 "register_operand"       "=??r,r  ,d  ,r")
+        (xor:HI (match_operand:HI 1 "register_operand" "%0,0  ,0  ,0")
+                (match_operand:HI 2 "nonmemory_operand" "r,Cx2,CX2,n")))
+   (clobber (match_scratch:QI 3                        "=X,X  ,X  ,&d"))
    (clobber (reg:CC REG_CC))]
   "reload_completed"
   {
@@ -4667,14 +4597,14 @@
 
     return avr_out_bitop (insn, operands, NULL);
   }
-  [(set_attr "length" "2,2,4")
-   (set_attr "adjust_len" "*,out_bitop,out_bitop")])
+  [(set_attr "length" "2,2,4,4")
+   (set_attr "adjust_len" "*,out_bitop,out_bitop,out_bitop")])
 
 (define_insn_and_split "xorpsi3"
-  [(set (match_operand:PSI 0 "register_operand"        "=??r,r  ,r")
-        (xor:PSI (match_operand:PSI 1 "register_operand" "%0,0  ,0")
-                 (match_operand:PSI 2 "nonmemory_operand" "r,Cx3,n")))
-   (clobber (match_scratch:QI 3                          "=X,X  ,&d"))]
+  [(set (match_operand:PSI 0 "register_operand"        "=??r,r  ,d  ,r")
+        (xor:PSI (match_operand:PSI 1 "register_operand" "%0,0  ,0  ,0")
+                 (match_operand:PSI 2 "nonmemory_operand" "r,Cx3,CX3,n")))
+   (clobber (match_scratch:QI 3                          "=X,X  ,X  ,&d"))]
   ""
   "#"
   "&& reload_completed"
@@ -4685,10 +4615,10 @@
                    (clobber (reg:CC REG_CC))])])
 
 (define_insn "*xorpsi3"
-  [(set (match_operand:PSI 0 "register_operand"        "=??r,r  ,r")
-        (xor:PSI (match_operand:PSI 1 "register_operand" "%0,0  ,0")
-                 (match_operand:PSI 2 "nonmemory_operand" "r,Cx3,n")))
-   (clobber (match_scratch:QI 3                          "=X,X  ,&d"))
+  [(set (match_operand:PSI 0 "register_operand"        "=??r,r  ,d  ,r")
+        (xor:PSI (match_operand:PSI 1 "register_operand" "%0,0  ,0  ,0")
+                 (match_operand:PSI 2 "nonmemory_operand" "r,Cx3,CX3,n")))
+   (clobber (match_scratch:QI 3                          "=X,X  ,X  ,&d"))
    (clobber (reg:CC REG_CC))]
   "reload_completed"
   {
@@ -4699,14 +4629,14 @@
 
     return avr_out_bitop (insn, operands, NULL);
   }
-  [(set_attr "length" "3,6,6")
-   (set_attr "adjust_len" "*,out_bitop,out_bitop")])
+  [(set_attr "length" "3,6,6,6")
+   (set_attr "adjust_len" "*,out_bitop,out_bitop,out_bitop")])
 
 (define_insn_and_split "xorsi3"
-  [(set (match_operand:SI 0 "register_operand"       "=??r,r  ,r")
-        (xor:SI (match_operand:SI 1 "register_operand" "%0,0  ,0")
-                (match_operand:SI 2 "nonmemory_operand" "r,Cx4,n")))
-   (clobber (match_scratch:QI 3                        "=X,X  ,&d"))]
+  [(set (match_operand:SI 0 "register_operand"       "=??r,r  ,d  ,r")
+        (xor:SI (match_operand:SI 1 "register_operand" "%0,0  ,0  ,0")
+                (match_operand:SI 2 "nonmemory_operand" "r,Cx4,CX4,n")))
+   (clobber (match_scratch:QI 3                        "=X,X  ,X  ,&d"))]
   ""
   "#"
   "&& reload_completed"
@@ -4717,10 +4647,10 @@
               (clobber (reg:CC REG_CC))])])
 
 (define_insn "*xorsi3"
-  [(set (match_operand:SI 0 "register_operand"       "=??r,r  ,r")
-        (xor:SI (match_operand:SI 1 "register_operand" "%0,0  ,0")
-                (match_operand:SI 2 "nonmemory_operand" "r,Cx4,n")))
-   (clobber (match_scratch:QI 3                        "=X,X  ,&d"))
+  [(set (match_operand:SI 0 "register_operand"       "=??r,r  ,d  ,r")
+        (xor:SI (match_operand:SI 1 "register_operand" "%0,0  ,0  ,0")
+                (match_operand:SI 2 "nonmemory_operand" "r,Cx4,CX4,n")))
+   (clobber (match_scratch:QI 3                        "=X,X  ,X  ,&d"))
    (clobber (reg:CC REG_CC))]
   "reload_completed"
   {
@@ -4732,8 +4662,8 @@
 
     return avr_out_bitop (insn, operands, NULL);
   }
-  [(set_attr "length" "4,8,8")
-   (set_attr "adjust_len" "*,out_bitop,out_bitop")])
+  [(set_attr "length" "4,8,8,8")
+   (set_attr "adjust_len" "*,out_bitop,out_bitop,out_bitop")])
 
 
 (define_split
@@ -4744,7 +4674,7 @@
   [(set (match_dup 2) (match_dup 3))
    (set (match_dup 4) (match_dup 5))]
   {
-    machine_mode mode_hi = 4 == GET_MODE_SIZE (<MODE>mode) ? HImode : QImode;
+    machine_mode mode_hi = <SIZE> == 4 ? HImode : QImode;
     bool lo_first = REGNO (operands[0]) < REGNO (operands[1]);
     rtx dst_lo = simplify_gen_subreg (HImode, operands[0], <MODE>mode, 0);
     rtx src_lo = simplify_gen_subreg (HImode, operands[1], <MODE>mode, 0);
@@ -4756,7 +4686,7 @@
     operands[4] = lo_first ? dst_hi : dst_lo;
     operands[5] = lo_first ? src_hi : src_lo;
   })
-  
+
 (define_split
   [(set (match_operand:HI 0 "register_operand")
         (match_operand:HI 1 "reg_or_0_operand"))]
@@ -4788,7 +4718,7 @@
    && reload_completed"
   [(const_int 1)]
   {
-    for (int i = 0; i < GET_MODE_SIZE (<MODE>mode); i++)
+    for (int i = 0; i < <SIZE>; i++)
       {
         rtx dst = simplify_gen_subreg (QImode, operands[0], <MODE>mode, i);
         rtx src = simplify_gen_subreg (QImode, operands[1], <MODE>mode, i);
@@ -4804,7 +4734,7 @@
 ;; by
 ;;    $1 = $1 <op> const
 ;;    $0 = $1
-;; This transorms constraint alternative "r,0,n,&d" of the first operation
+;; This transforms constraint alternative "r,0,n,&d" of the first operation
 ;; to alternative "d,0,n,X".
 ;; "*addhi3_clobber"  "*addpsi3"  "*addsi3"
 ;; "*addhq3"  "*adduhq3"  "*addha3"  "*adduha3"
@@ -4904,12 +4834,10 @@
               (clobber (match_dup 3))])]
   ""
   {
-    int offset;
-
     if (!CONST_INT_P (operands[2]))
       FAIL;
 
-    offset = INTVAL (operands[2]);
+    int offset = INTVAL (operands[2]);
 
     if (0 == offset % 8)
       {
@@ -4919,7 +4847,7 @@
           operands[3] = gen_rtx_SCRATCH (QImode);
       }
     else if (offset == 1
-             || offset == GET_MODE_BITSIZE (<MODE>mode) -1)
+             || offset == <MSB>)
       {
         // Support rotate left/right by 1.
 
@@ -5074,7 +5002,7 @@
    (clobber (match_scratch:<rotsmode> 3 "=<rotx>"))]
   "AVR_HAVE_MOVW
    && CONST_INT_P (operands[2])
-   && GET_MODE_SIZE (<MODE>mode) % 2 == 0
+   && <SIZE> % 2 == 0
    && 0 == INTVAL (operands[2]) % 16"
   "#"
   "&& reload_completed"
@@ -5098,7 +5026,7 @@
   "CONST_INT_P (operands[2])
    && (8 == INTVAL (operands[2]) % 16
        || ((!AVR_HAVE_MOVW
-            || GET_MODE_SIZE (<MODE>mode) % 2 != 0)
+            || <SIZE> % 2 != 0)
            && 0 == INTVAL (operands[2]) % 16))"
   "#"
   "&& reload_completed"
@@ -6615,7 +6543,7 @@
         (compare:CC (any_extend:HISI (match_operand:QIPSI 0 "register_operand" "r"))
                     (match_operand:HISI 1 "register_operand" "r")))]
   "reload_completed
-   && GET_MODE_SIZE (<HISI:MODE>mode) > GET_MODE_SIZE (<QIPSI:MODE>mode)"
+   && <HISI:SIZE> > <QIPSI:SIZE>"
   {
     return avr_out_cmp_ext (operands, <CODE>, nullptr);
   }
@@ -6628,7 +6556,7 @@
         (compare:CC (match_operand:HISI 0 "register_operand" "r")
                     (any_extend:HISI (match_operand:QIPSI 1 "register_operand" "r"))))]
   "reload_completed
-   && GET_MODE_SIZE (<HISI:MODE>mode) > GET_MODE_SIZE (<QIPSI:MODE>mode)"
+   && <HISI:SIZE> > <QIPSI:SIZE>"
   {
     return avr_out_cmp_ext (operands, <CODE>, nullptr);
   }
@@ -6871,7 +6799,7 @@
                       (label_ref (match_operand 3))
                       (pc)))]
   "optimize
-   && GET_MODE_SIZE (<HISI:MODE>mode) > GET_MODE_SIZE (<QIPSI:MODE>mode)"
+   && <HISI:SIZE> > <QIPSI:SIZE>"
   "#"
   "&& reload_completed"
   [; "*cmp<HISI:mode>.<code><QIPSI:mode>.0"
@@ -6902,7 +6830,7 @@
                       (label_ref (match_operand 3))
                       (pc)))]
   "optimize
-   && GET_MODE_SIZE (<HISI:MODE>mode) > GET_MODE_SIZE (<QIPSI:MODE>mode)"
+   && <HISI:SIZE> > <QIPSI:SIZE>"
   "#"
   "&& reload_completed"
   [; "*cmp<HISI:mode>.<code><QIPSI:mode>.0"
@@ -6926,8 +6854,8 @@
 
 
 ;; Test a single bit in a QI/HI/SImode register.
-;; Combine will create zero extract patterns for single bit tests.
-;; permit any mode in source pattern by using VOIDmode.
+;; Combine will create zero-extract patterns for single-bit tests.
+;; Permit any mode in source pattern by using VOIDmode.
 
 (define_insn_and_split "*sbrx_branch<mode>_split"
   [(set (pc)
@@ -6979,8 +6907,8 @@
                                     (const_int 2)
                                     (const_int 4))))])
 
-;; Same test based on bitwise AND.  Keep this in case gcc changes patterns.
-;; or for old peepholes.
+;; Same test based on bitwise AND.  Keep this in case gcc changes patterns
+;; or for text peepholes.
 ;; Fixme - bitwise Mask will not work for DImode
 
 (define_insn_and_split "*sbrx_and_branch<mode>_split"
@@ -7052,7 +6980,7 @@
               (clobber (reg:CC REG_CC))])]
   {
     operands[0] = avr_to_int_mode (operands[0]);
-    operands[1] = GEN_INT (GET_MODE_BITSIZE (<MODE>mode) - 1);
+    operands[1] = GEN_INT (<MSB>);
   })
 
 ;; Convert sign tests to bit 15/23/31 tests that match the above insns.
@@ -7077,7 +7005,7 @@
               (clobber (reg:CC REG_CC))])]
   {
     operands[0] = avr_to_int_mode (operands[0]);
-    operands[1] = GEN_INT (GET_MODE_BITSIZE (<MODE>mode) - 1);
+    operands[1] = GEN_INT (<MSB>);
   })
 
 
@@ -7178,10 +7106,10 @@
   ;; Operand 2 is 1 for tail-call, 0 otherwise.
   ""
   "@
-    %!icall
-    %~call %x0
-    %!ijmp
-    %~jmp %x0"
+	%!icall
+	%~call %x0
+	%!ijmp
+	%~jmp %x0"
   [(set_attr "length" "1,*,1,*")
    (set_attr "adjust_len" "*,call,*,call")])
 
@@ -7194,10 +7122,10 @@
   ;; Operand 3 is 1 for tail-call, 0 otherwise.
   ""
   "@
-    %!icall
-    %~call %x1
-    %!ijmp
-    %~jmp %x1"
+	%!icall
+	%~call %x1
+	%!ijmp
+	%~jmp %x1"
   [(set_attr "length" "1,*,1,*")
    (set_attr "adjust_len" "*,call,*,call")])
 
@@ -7331,7 +7259,7 @@
 ;;   "casesi_<mode>_sequence" (used to recog + extract casesi
 ;;   sequences in pass .avr-casesi) and propagate all adjustments
 ;;   also to that pattern and the code of the extra pass.
-  
+
 (define_expand "casesi"
   [(parallel [(set (match_dup 5)
                    (plus:SI (match_operand:SI 0 "register_operand")
@@ -7647,8 +7575,6 @@
                       (pc)))]
   "dead_or_set_regno_p (insn, REG_CC)"
   {
-    const char *op;
-    int jump_mode;
     if (avr_adiw_reg_p (operands[0]))
       output_asm_insn ("sbiw %0,1" CR_TAB
                        "sbc %C0,__zero_reg__" CR_TAB
@@ -7659,8 +7585,8 @@
                        "sbc %C0,__zero_reg__" CR_TAB
                        "sbc %D0,__zero_reg__", operands);
 
-    jump_mode = avr_jump_mode (operands[2], insn);
-    op = ((EQ == <CODE>) ^ (jump_mode == 1)) ? "brcc" : "brcs";
+    int jump_mode = avr_jump_mode (operands[2], insn);
+    const char *op = ((EQ == <CODE>) ^ (jump_mode == 1)) ? "brcc" : "brcs";
     operands[1] = gen_rtx_CONST_STRING (VOIDmode, op);
 
     switch (jump_mode)
@@ -7690,14 +7616,13 @@
                       (pc)))]
   "dead_or_set_regno_p (insn, REG_CC)"
   {
-    int jump_mode;
     if (avr_adiw_reg_p (operands[0]))
       output_asm_insn ("sbiw %0,1", operands);
     else
       output_asm_insn ("subi %A0,1" CR_TAB
                        "sbc %B0,__zero_reg__", operands);
 
-    jump_mode = avr_jump_mode (operands[2], insn);
+    int jump_mode = avr_jump_mode (operands[2], insn);
     const char *op = ((EQ == <CODE>) ^ (jump_mode == 1)) ? "brcc" : "brcs";
     operands[1] = gen_rtx_CONST_STRING (VOIDmode, op);
 
@@ -8323,7 +8248,22 @@
    (set (match_dup 0)
         (reg:HI 24))])
 
-(define_insn_and_split "*parityqihi2"
+(define_insn_and_split "*parityqihi2.1"
+  [(set (match_operand:HI 0 "register_operand"            "=r")
+        (zero_extend:HI
+         (parity:QI (match_operand:QI 1 "register_operand" "r"))))
+   (clobber (reg:HI 24))]
+  "!reload_completed"
+  { gcc_unreachable(); }
+  "&& 1"
+  [(set (reg:QI 24)
+        (match_dup 1))
+   (set (reg:HI 24)
+        (zero_extend:HI (parity:QI (reg:QI 24))))
+   (set (match_dup 0)
+        (reg:HI 24))])
+
+(define_insn_and_split "*parityqihi2.2"
   [(set (match_operand:HI 0 "register_operand"           "=r")
         (parity:HI (match_operand:QI 1 "register_operand" "r")))
    (clobber (reg:HI 24))]
@@ -8431,6 +8371,19 @@
   {
     operands[2] = gen_reg_rtx (HImode);
   })
+
+(define_insn_and_split "*popcounthi2.split8"
+  [(set (reg:HI 24)
+        (zero_extend:HI (popcount:QI (match_operand:QI 0 "register_operand"))))]
+  "! reload_completed"
+  { gcc_unreachable(); }
+  "&& 1"
+  [(set (reg:QI 24)
+        (match_dup 0))
+   (set (reg:QI 24)
+        (popcount:QI (reg:QI 24)))
+   (set (reg:QI 25)
+        (const_int 0))])
 
 (define_insn_and_split "*popcounthi2.libgcc_split"
   [(set (reg:HI 24)
@@ -9044,8 +8997,8 @@
                 (and:QI (ashift:QI (match_operand:QI 3 "register_operand"     "r")
                                    (match_operand:QI 4 "const_0_to_7_operand" "n"))
                         (match_operand:QI 5 "single_one_operand"              "n"))))]
-  "INTVAL(operands[4]) == exact_log2 (~INTVAL(operands[2]) & GET_MODE_MASK (QImode))
-   && INTVAL(operands[4]) == exact_log2 (INTVAL(operands[5]) & GET_MODE_MASK (QImode))"
+  "INTVAL (operands[4]) == exact_log2 (~INTVAL (operands[2]) & 0xff)
+   && INTVAL (operands[4]) == exact_log2 (INTVAL (operands[5]) & 0xff)"
   "bst %3,0\;bld %0,%4"
   [(set_attr "length" "2")])
 
@@ -9060,7 +9013,7 @@
                 (ashift:QI (and:QI (match_operand:QI 3 "register_operand"  "r")
                                    (const_int 1))
                            (match_operand:QI 4 "const_0_to_7_operand"      "n"))))]
-  "INTVAL(operands[4]) == exact_log2 (~INTVAL(operands[2]) & GET_MODE_MASK (QImode))"
+  "INTVAL (operands[4]) == exact_log2 (~INTVAL (operands[2]) & 0xff)"
   "bst %3,0\;bld %0,%4"
   [(set_attr "length" "2")])
 
@@ -9282,46 +9235,69 @@
   })
 
 
+;; "*iorsi.ashift"    "*iorpsi.ashift"    "*iorhi.ashift"
+;; "*xorsi.ashift"    "*xorpsi.ashift"    "*xorhi.ashift"
+;; "*iorsi.lshiftrt"  "*iorpsi.lshiftrt"  "*iorhi.lshiftrt"
+;; "*xorsi.lshiftrt"  "*xorpsi.lshiftrt"  "*xorhi.lshiftrt"
+(define_insn_and_split "*<xior:code><mode>.<any_lshift:code>"
+  [(set (match_operand:HISI 0 "register_operand"                               "=r")
+        (xior:HISI (any_lshift:HISI (match_operand:HISI 1 "register_operand"    "r")
+                                    (match_operand:QI 3 "const_8_16_24_operand" "n"))
+                   (match_operand:HISI 2 "register_operand"                     "0")))]
+  "INTVAL (operands[3]) <= <MSB>"
+  "#"
+  "&& reload_completed"
+  [(scratch)]
+  {
+    avr_emit_xior_with_shift (curr_insn, operands, INTVAL (operands[3]));
+    DONE;
+  })
+
 ;; Some combine patterns that try to fix bad code when a value is composed
 ;; from byte parts like in PR27663.
 ;; The patterns give some release but the code still is not optimal,
 ;; in particular when subreg lowering (-fsplit-wide-types) is turned on.
 ;; That switch obfuscates things here and in many other places.
 
-;; "*iorhiqi.byte0"   "*iorpsiqi.byte0"   "*iorsiqi.byte0"
-;; "*xorhiqi.byte0"   "*xorpsiqi.byte0"   "*xorsiqi.byte0"
-(define_insn_and_split "*<code_stdname><mode>qi.byte0"
-  [(set (match_operand:HISI 0 "register_operand"                 "=r")
-        (xior:HISI
-         (zero_extend:HISI (match_operand:QI 1 "register_operand" "r"))
-         (match_operand:HISI 2 "register_operand"                 "0")))]
-  ""
-  "#"
-  "reload_completed"
-  [(set (match_dup 3)
-        (xior:QI (match_dup 3)
-                 (match_dup 1)))]
-  {
-    operands[3] = simplify_gen_subreg (QImode, operands[0], <MODE>mode, 0);
-  })
-
-;; "*iorhiqi.byte1-3"  "*iorpsiqi.byte1-3"  "*iorsiqi.byte1-3"
-;; "*xorhiqi.byte1-3"  "*xorpsiqi.byte1-3"  "*xorsiqi.byte1-3"
-(define_insn_and_split "*<code_stdname><mode>qi.byte1-3"
+;; "*iorsiqi.0"  "*iorpsiqi.0"  "*iorhiqi.0"
+;; "*iorsihi.0"  "*iorpsihi.0"  "*iorsipsi.0"
+;; "*xorsiqi.0"  "*xorpsiqi.0"  "*xorhiqi.0"
+;; "*xorsihi.0"  "*xorpsihi.0"  "*xorsipsi.0"
+(define_insn_and_split "*<code><HISI:mode><QIPSI:mode>.0"
   [(set (match_operand:HISI 0 "register_operand"                              "=r")
-        (xior:HISI
-         (ashift:HISI (zero_extend:HISI (match_operand:QI 1 "register_operand" "r"))
-                      (match_operand:QI 2 "const_8_16_24_operand"              "n"))
-         (match_operand:HISI 3 "register_operand"                              "0")))]
-  "INTVAL(operands[2]) < GET_MODE_BITSIZE (<MODE>mode)"
+        (xior:HISI (zero_extend:HISI (match_operand:QIPSI 1 "register_operand" "r"))
+                   (match_operand:HISI 2 "register_operand"                    "0")))]
+  "<HISI:SIZE> > <QIPSI:SIZE>"
   "#"
   "&& reload_completed"
-  [(set (match_dup 4)
-        (xior:QI (match_dup 4)
-                 (match_dup 1)))]
+  [(scratch)]
   {
-    int byteno = INTVAL(operands[2]) / BITS_PER_UNIT;
-    operands[4] = simplify_gen_subreg (QImode, operands[0], <MODE>mode, byteno);
+    avr_emit_xior_with_shift (curr_insn, operands, 0);
+    DONE;
+  })
+
+
+;; "*iorsiqi.ashift"  "*iorpsiqi.ashift"  "*iorhiqi.ashift"
+;; "*iorsihi.ashift"  "*iorpsihi.ashift"  "*iorsipsi.ashift"
+;; "*xorsiqi.ashift"  "*xorpsiqi.ashift"  "*xorhiqi.ashift"
+;; "*xorsihi.ashift"  "*xorpsihi.ashift"  "*xorsipsi.ashift"
+;; "*iorsiqi.lshiftrt"  "*iorpsiqi.lshiftrt"  "*iorhiqi.lshiftrt"
+;; "*iorsihi.lshiftrt"  "*iorpsihi.lshiftrt"  "*iorsipsi.lshiftrt"
+;; "*xorsiqi.lshiftrt"  "*xorpsiqi.lshiftrt"  "*xorhiqi.lshiftrt"
+;; "*xorsihi.lshiftrt"  "*xorpsihi.lshiftrt"  "*xorsipsi.lshiftrt"
+(define_insn_and_split "*<xior:code><HISI:mode><QIPSI:mode>.<any_lshift:code>"
+  [(set (match_operand:HISI 0 "register_operand"                                               "=r")
+        (xior:HISI (any_lshift:HISI (zero_extend:HISI (match_operand:QIPSI 1 "register_operand" "r"))
+                                    (match_operand:QI 3 "const_8_16_24_operand"                 "n"))
+                   (match_operand:HISI 2 "register_operand"                                     "0")))]
+  "<HISI:SIZE> > <QIPSI:SIZE>
+   && INTVAL (operands[3]) <= <HISI:MSB>"
+  "#"
+  "&& reload_completed"
+  [(scratch)]
+  {
+    avr_emit_xior_with_shift (curr_insn, operands, INTVAL (operands[3]));
+    DONE;
   })
 
 
@@ -9852,6 +9828,12 @@
                          (const_int 1)
                          (const_int 7)))])
 
+;; This insn serves as a combine bridge because insn combine will only
+;; combine so much (3) insns at most.  It's not actually an open coded
+;; bit-insertion but just a part of it.  It may occur in other contexts
+;; than INSV though, and in such a case the code may be worse than without
+;; this pattern.  We still have to emit code for it in that case because
+;; we cannot roll back.
 (define_insn_and_split "*insv.any_shift.<mode>_split"
   [(set (match_operand:QISI 0 "register_operand" "=r")
         (and:QISI (any_shift:QISI (match_operand:QISI 1 "register_operand" "r")
@@ -9874,27 +9856,9 @@
    (clobber (reg:CC REG_CC))]
   "reload_completed"
   {
-    int shift = <CODE> == ASHIFT ? INTVAL (operands[2]) : -INTVAL (operands[2]);
-    int mask = GET_MODE_MASK (<MODE>mode) & INTVAL (operands[3]);
-    // Position of the output / input bit, respectively.
-    int obit = exact_log2 (mask);
-    int ibit = obit - shift;
-    gcc_assert (IN_RANGE (obit, 0, <MSB>));
-    gcc_assert (IN_RANGE (ibit, 0, <MSB>));
-    operands[3] = GEN_INT (obit);
-    operands[2] = GEN_INT (ibit);
-
-    if (<SIZE> == 1) return "bst %T1%T2\;clr %0\;"                 "bld %T0%T3";
-    if (<SIZE> == 2) return "bst %T1%T2\;clr %A0\;clr %B0\;"       "bld %T0%T3";
-    if (<SIZE> == 3) return "bst %T1%T2\;clr %A0\;clr %B0\;clr %C0\;bld %T0%T3";
-    return AVR_HAVE_MOVW
-      ? "bst %T1%T2\;clr %A0\;clr %B0\;movw %C0,%A0\;"  "bld %T0%T3"
-      : "bst %T1%T2\;clr %A0\;clr %B0\;clr %C0\;clr %D0\;bld %T0%T3";
+    return avr_out_insv (insn, operands, nullptr);
   }
-  [(set (attr "length")
-        (minus (symbol_ref "2 + <SIZE>")
-               ; One less if we can use a MOVW to clear.
-               (symbol_ref "<SIZE> == 4 && AVR_HAVE_MOVW")))])
+  [(set_attr "adjust_len" "insv")])
 
 
 (define_insn_and_split "*extzv.<mode>hi2"
@@ -9935,6 +9899,20 @@
         (zero_extract:QI (match_dup 1)
                          (const_int 1)
                          (match_dup 2)))])
+
+
+;; Work around PR115307: Early passes expand isinf/f/l to a bloat.
+;; These passes do not consider costs, and there is no way to
+;; hook in or otherwise disable the generated bloat.
+
+;; isinfsf2  isinfdf2
+(define_expand "isinf<mode>2"
+  [(parallel [(match_operand:HI 0)
+              (match_operand:SFDF 1)])]
+  ""
+  {
+    FAIL;
+  })
 
 
 ;; Fixed-point instructions
